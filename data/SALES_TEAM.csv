@@ -1,6 +1,6 @@
 Salesperson ID,Name,Email,Phone,Region,Active
-SP-01,Rajesh Kulkarni,rajesh.kulkarni@apllubes.example,+91 98220 44110,Maharashtra (Pune / Nashik),FALSE
-SP-02,Ananya Subramanian,ananya.s@apllubes.example,+91 98401 77230,Tamil Nadu (Chennai / Coimbatore),FALSE
-SP-03,Vikramaditya Mehta,vikram.mehta@apllubes.example,+91 98250 61890,Gujarat (Ahmedabad / Rajkot),FALSE
-SP-04,Harpreet Singh Gill,harpreet.gill@apllubes.example,+91 98111 35042,North NCR / Punjab (Gurugram / Ludhiana),FALSE
-SP-05,Siddharth Nair,siddharth.nair@apllubes.example,+91 98450 22918,Karnataka (Bengaluru / Belagavi),FALSE
+SP-01,Rajesh Kulkarni,rajesh.kulkarni@apllubes.example,+91 98220 44110,Maharashtra (Pune / Nashik),TRUE
+SP-02,Ananya Subramanian,ananya.s@apllubes.example,+91 98401 77230,Tamil Nadu (Chennai / Coimbatore),TRUE
+SP-03,Vikramaditya Mehta,vikram.mehta@apllubes.example,+91 98250 61890,Gujarat (Ahmedabad / Rajkot),TRUE
+SP-04,Harpreet Singh Gill,harpreet.gill@apllubes.example,+91 98111 35042,North NCR / Punjab (Gurugram / Ludhiana),TRUE
+SP-05,Siddharth Nair,siddharth.nair@apllubes.example,+91 98450 22918,Karnataka (Bengaluru / Belagavi),TRUE

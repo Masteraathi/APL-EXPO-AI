@@ -5,6 +5,7 @@ const {
   VISIT_PRIORITIES,
   DEFAULT_CATEGORIES,
   DEFAULT_SALES_TEAM,
+  FIXED_EXPO_NAME,
   DEFAULT_EXPOS,
   SEED_ENQUIRIES,
 } = require('./config');
@@ -208,7 +209,8 @@ class ExpoStore {
     return {
       categories: state.categories,
       salesTeam: state.salesTeam,
-      expos: Array.from(expoSet),
+      fixedExpoName: FIXED_EXPO_NAME,
+      expos: [FIXED_EXPO_NAME],
       statuses: ENQUIRY_STATUSES,
       priorities: VISIT_PRIORITIES,
     };
@@ -354,11 +356,6 @@ class ExpoStore {
         errors.contactPerson = 'Contact person is required.';
       }
     }
-    if (isCreate || payload.expoName !== undefined) {
-      if (!String(payload.expoName || '').trim()) {
-        errors.expoName = 'Expo / event name is required.';
-      }
-    }
     if (isCreate || payload.enquiryDate !== undefined) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payload.enquiryDate || ''))) {
         errors.enquiryDate = 'Valid enquiry date (YYYY-MM-DD) is required.';
@@ -446,8 +443,8 @@ class ExpoStore {
       }
     }
 
-    const expoName = String(payload.expoName).trim();
-    if (expoName && !state.expos.includes(expoName)) {
+    const expoName = FIXED_EXPO_NAME;
+    if (!state.expos.includes(expoName)) {
       state.expos.push(expoName);
     }
 

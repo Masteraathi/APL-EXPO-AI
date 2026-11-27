@@ -140,12 +140,9 @@ const DEFAULT_SALES_TEAM = [
   },
 ];
 
-const DEFAULT_EXPOS = [
-  'IMTEX 2026 - Bengaluru',
-  'MACHMA Expo 2026 - Pune',
-  'Auto Expo Components 2026 - New Delhi',
-  'PLASTINDIA 2026 - Gandhinagar',
-];
+const FIXED_EXPO_NAME = 'IMTEX-2027';
+
+const DEFAULT_EXPOS = [FIXED_EXPO_NAME];
 
 function svgToDataUri(svg) {
   return 'data:image/svg+xml;base64,' + Buffer.from(svg, 'utf8').toString('base64');
@@ -153,9 +150,9 @@ function svgToDataUri(svg) {
 
 const SEED_ENQUIRIES = [
   {
-    enquiryId: 'APL-2026-0001',
-    expoName: 'IMTEX 2026 - Bengaluru',
-    enquiryDate: '2026-11-24',
+    enquiryId: 'APL-2027-0001',
+    expoName: FIXED_EXPO_NAME,
+    enquiryDate: '2027-01-21',
     frontCardImage: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="720" height="420" viewBox="0 0 720 420">
       <rect width="720" height="420" rx="18" fill="#0F2942"/>
       <rect x="0" y="0" width="18" height="420" fill="#C98A2C"/>
@@ -205,8 +202,8 @@ const SEED_ENQUIRIES = [
     updatedAt: '2026-11-25T09:45:00.000Z',
   },
   {
-    enquiryId: 'APL-2026-0002',
-    expoName: 'IMTEX 2026 - Bengaluru',
+    enquiryId: 'APL-2027-0002',
+    expoName: FIXED_EXPO_NAME,
     enquiryDate: '2026-11-25',
     frontCardImage: '',
     backCardImage: '',
@@ -247,8 +244,8 @@ const SEED_ENQUIRIES = [
     updatedAt: '2026-11-26T16:30:00.000Z',
   },
   {
-    enquiryId: 'APL-2026-0003',
-    expoName: 'MACHMA Expo 2026 - Pune',
+    enquiryId: 'APL-2027-0003',
+    expoName: FIXED_EXPO_NAME,
     enquiryDate: '2026-11-25',
     frontCardImage: '',
     backCardImage: '',
@@ -283,8 +280,8 @@ const SEED_ENQUIRIES = [
     updatedAt: '2026-11-25T16:05:00.000Z',
   },
   {
-    enquiryId: 'APL-2026-0004',
-    expoName: 'IMTEX 2026 - Bengaluru',
+    enquiryId: 'APL-2027-0004',
+    expoName: FIXED_EXPO_NAME,
     enquiryDate: '2026-11-26',
     frontCardImage: '',
     backCardImage: '',
@@ -318,8 +315,8 @@ const SEED_ENQUIRIES = [
     updatedAt: '2026-11-26T12:15:00.000Z',
   },
   {
-    enquiryId: 'APL-2026-0005',
-    expoName: 'Auto Expo Components 2026 - New Delhi',
+    enquiryId: 'APL-2027-0005',
+    expoName: FIXED_EXPO_NAME,
     enquiryDate: '2026-11-26',
     frontCardImage: '',
     backCardImage: '',
@@ -353,8 +350,8 @@ const SEED_ENQUIRIES = [
     updatedAt: '2026-11-26T15:40:00.000Z',
   },
   {
-    enquiryId: 'APL-2026-0006',
-    expoName: 'IMTEX 2026 - Bengaluru',
+    enquiryId: 'APL-2027-0006',
+    expoName: FIXED_EXPO_NAME,
     enquiryDate: '2026-11-27',
     frontCardImage: '',
     backCardImage: '',
@@ -388,8 +385,8 @@ const SEED_ENQUIRIES = [
     updatedAt: '2026-11-27T09:50:00.000Z',
   },
   {
-    enquiryId: 'APL-2026-0007',
-    expoName: 'PLASTINDIA 2026 - Gandhinagar',
+    enquiryId: 'APL-2027-0007',
+    expoName: FIXED_EXPO_NAME,
     enquiryDate: '2026-11-22',
     frontCardImage: '',
     backCardImage: '',
@@ -441,6 +438,7 @@ module.exports = {
   PRIORITY_GUIDANCE,
   DEFAULT_CATEGORIES,
   DEFAULT_SALES_TEAM,
+  FIXED_EXPO_NAME,
   DEFAULT_EXPOS,
   SEED_ENQUIRIES,
 };

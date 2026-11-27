@@ -1,15 +1,21 @@
 const { inferStateRegion } = require('./store');
 
 const COMPANY_SUFFIX_RE =
-  /\b(pvt\.?\s*ltd\.?|private\s+limited|limited|ltd\.?|llp|inc\.?|corp\.?|corporation|llc|gmbh|industries|enterprises|engineering|engineers|solutions|systems|castings|forgings|gears|metals|alloys|polymers|lubricants|oils|chemicals|motors|auto|automotive|precision|components|works|machinery|tools|tooling|group|associates|traders|exports|imports|india)\b/i;
+  /\b(pvt\.?\s*ltd\.?|private\s+limited|limited|ltd\.?|llp|inc\.?|corp\.?|corporation|llc|gmbh|industries|enterprises|engineering|engineers|solutions|systems|castings|forgings|gears|metals|alloys|polymers|lubricants|oils|chemicals|motors|auto|automotive|precision|components|works|machinery|tools|tooling|group|associates|traders|exports|imports|india|technologies|tech|foundry|steels)\b/i;
 
 const DESIGNATION_RE =
   /\b(managing\s+director|executive\s+director|director|c\.?e\.?o\.?|c\.?t\.?o\.?|c\.?o\.?o\.?|c\.?f\.?o\.?|vice\s+president|v\.?p\.?|president|founder|co-founder|partner|proprietor|owner|general\s+manager|g\.?m\.?|d\.?g\.?m\.?|a\.?g\.?m\.?|senior\s+manager|sr\.?\s*manager|plant\s+head|unit\s+head|business\s+head|head\s+of|department\s+head|manager|lead|engineer|executive|officer|specialist|consultant|representative|advisor|supervisor|coordinator|sales|marketing|procurement|purchase|maintenance|production|quality|operations|utilities|r\s*&\s*d)\b/i;
 
-const ADDRESS_HINT_RE =
-  /\b(plot|sector|phase|midc|gidc|sidco|kiadb|riico|industrial\s+estate|industrial\s+area|road|rd\.?|street|st\.?|avenue|ave|lane|cross|main|nagar|colony|park|tower|floor|flr|bldg|building|block|opp\.?|near|dist\.?|tal\.?|pin|pincode|\d{6})\b/i;
+const TAGLINE_RE =
+  /\b(iso\s*900\d|iatf\s*16949|iso\s*14001|certified\s+company|an\s+iso|since\s+19\d\d|since\s+20\d\d|manufacturers?\s+of|exporters?\s+of|dealers?\s+in|suppliers?\s+of|committed\s+to|precision\s+in\s+every|quality\s+first|excellence)\b/i;
 
-const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const ADDRESS_HINT_RE =
+  /\b(plot|sector|phase|midc|gidc|sidco|kiadb|riico|sipcot|industrial\s+estate|industrial\s+area|road|rd\.?|street|st\.?|avenue|ave|lane|cross|main|nagar|colony|park|tower|floor|flr|bldg|building|block|opp\.?|near|dist\.?|tal\.?|pin|pincode|india|\d{6})\b/i;
+
+const CITY_STATE_RE =
+  /\b(pune|mumbai|thane|navi\s+mumbai|nashik|aurangabad|kolhapur|nagpur|satara|chakan|bhosari|waluj|chennai|hosur|coimbatore|madurai|trichy|tiruchirappalli|bengaluru|bangalore|belagavi|belgaum|peenya|mysuru|hubballi|ahmedabad|rajkot|vadodara|baroda|surat|ankleshwar|vapi|jamnagar|gandhinagar|metoda|vatva|delhi|new\s+delhi|gurugram|gurgaon|faridabad|manesar|noida|greater\s+noida|ghaziabad|ludhiana|jalandhar|amritsar|chandigarh|jaipur|bhiwadi|udaipur|indore|pithampur|bhopal|hyderabad|secunderabad|visakhapatnam|kolkata|howrah|durgapur|jamshedpur|rourkela|raipur|maharashtra|karnataka|tamil\s+nadu|gujarat|haryana|punjab|telangana|uttar\s+pradesh|rajasthan|west\s+bengal|jharkhand|madhya\s+pradesh|odisha|kerala)\b/i;
+
+const EMAIL_RE = /[A-Z0-9._%+-]+\s*@\s*[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const URL_RE = /(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+\b(?:\/[^\s,;]*)?/gi;
 const PIN_RE = /\b([1-9]\d{5})\b/;
 
@@ -125,7 +131,6 @@ const CATEGORY_KEYWORD_RULES = [
       'die cast',
       'hpdc',
       'industrial',
-      'manufacturing',
       'spindle',
       'lubricant',
     ],
@@ -196,15 +201,36 @@ const CATEGORY_KEYWORD_RULES = [
 
 function cleanLine(line) {
   return String(line || '')
-    .replace(/[|•·]+/g, ' ')
+    .replace(/[•·]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function stripContactLabels(str) {
   return str
-    .replace(/^(?:m|mob|mobile|cell|ph|phone|tel|t|e|email|e-mail|w|web|website|fax|f|o|off)\s*[:.\-]\s*/i, '')
+    .replace(
+      /^(?:m|mob|mobile|cell|ph|phone|tel|t|e|email|e-mail|w|web|website|fax|f|o|off|regd\.?\s*off|works|factory|plant)\s*[:.\-]\s*/i,
+      ''
+    )
     .trim();
+}
+
+/**
+ * Split multi-segment OCR lines packed with pipes/tabs (e.g. "M: +91 ... | E: a@b.com")
+ */
+function explodeSegmentedLines(lines) {
+  const result = [];
+  for (const l of lines) {
+    const parts = l.text.split(/\s+\|\s+|\t+/).map((p) => cleanLine(p)).filter(Boolean);
+    if (parts.length <= 1) {
+      result.push(l);
+    } else {
+      for (const p of parts) {
+        result.push({ ...l, text: p });
+      }
+    }
+  }
+  return result;
 }
 
 function extractEmails(lines) {
@@ -212,11 +238,18 @@ function extractEmails(lines) {
   for (const l of lines) {
     const matches = l.text.match(EMAIL_RE) || [];
     for (const m of matches) {
-      const cleaned = m.toLowerCase();
+      const cleaned = m.replace(/\s+/g, '').toLowerCase();
       if (!found.includes(cleaned)) found.push(cleaned);
     }
   }
   return found;
+}
+
+function normalizeOcrDigits(raw) {
+  // Fix common OCR confusion in numeric strings (O/o -> 0, l/I -> 1 when surrounded by digits)
+  return raw
+    .replace(/(?<=\d)[Oo](?=[\d\s-])/g, '0')
+    .replace(/(?<=[\d\s+])[Oo](?=\d)/g, '0');
 }
 
 function extractPhones(lines) {
@@ -224,7 +257,7 @@ function extractPhones(lines) {
   const phoneChunkRe = /(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,5}\)?[\s.-]?)?\d{3,5}[\s.-]?\d{3,6}/g;
 
   for (const l of lines) {
-    const raw = l.text;
+    const raw = normalizeOcrDigits(l.text);
     const isFax = /\b(fax|f\s*:)\b/i.test(raw);
     const isMobileLabel = /\b(m|mob|mobile|cell|whatsapp|wa)\b\s*[:.\-]?/i.test(raw);
     const isLandlineLabel = /\b(tel|telephone|off|office|landline|ph|phone|t)\b\s*[:.\-]?/i.test(raw);
@@ -232,20 +265,27 @@ function extractPhones(lines) {
     const matches = raw.match(phoneChunkRe) || [];
     for (const m of matches) {
       const digits = m.replace(/\D/g, '');
-      // Skip 6-digit PIN codes or tiny numbers
       if (digits.length < 8 || digits.length > 15) continue;
-      // Avoid matching dates like 2026-11-27
       if (/^\d{4}[-/]\d{2}[-/]\d{2}$/.test(m.trim())) continue;
+      // Skip likely 6-digit PINs or GST numbers
+      if (digits.length === 6) continue;
 
       let score = 1;
-      if (isFax) score -= 10;
-      if (isMobileLabel) score += 6;
+      if (isFax) score -= 12;
+      if (isMobileLabel) score += 7;
       if (isLandlineLabel) score += 1;
-      if (/^(?:\+?91)?[6-9]\d{9}$/.test(digits)) score += 5;
+      if (/^(?:\+?91|0)?[6-9]\d{9}$/.test(digits)) score += 6;
       if (m.includes('+')) score += 2;
 
+      let formatted = m.trim().replace(/\s+/g, ' ');
+      if (/^[6-9]\d{9}$/.test(digits)) {
+        formatted = `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+      } else if (/^91[6-9]\d{9}$/.test(digits) && !formatted.startsWith('+')) {
+        formatted = `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+      }
+
       candidates.push({
-        formatted: m.trim().replace(/\s+/g, ' '),
+        formatted,
         digits,
         score,
         isFax,
@@ -272,8 +312,7 @@ function extractWebsites(lines, emails) {
   );
   const found = [];
   for (const l of lines) {
-    // Strip emails from line before scanning URLs
-    const withoutEmails = l.text.replace(EMAIL_RE, ' ');
+    const withoutEmails = l.text.replace(EMAIL_RE, ' ').replace(/\bwww,/gi, 'www.');
     const matches = withoutEmails.match(URL_RE) || [];
     for (const m of matches) {
       const lower = m.toLowerCase().replace(/[.,;)]+$/, '');
@@ -288,7 +327,7 @@ function extractWebsites(lines, emails) {
   }
   if (found.length === 0 && emailDomains.size > 0) {
     const domain = Array.from(emailDomains)[0];
-    if (!/(gmail|yahoo|outlook|hotmail|rediffmail|protonmail)\./i.test(domain)) {
+    if (!/(gmail|yahoo|outlook|hotmail|rediffmail|protonmail|icloud)\./i.test(domain)) {
       return [`www.${domain}`];
     }
   }
@@ -306,18 +345,34 @@ function inferStateFromPin(text) {
 }
 
 function scoreNameLikelihood(text) {
-  const t = cleanLine(text);
+  let t = cleanLine(text).replace(/^(?:mr|mrs|ms|dr|er|shri)\.?\s+/i, '');
   if (!t || t.length < 3 || t.length > 42) return -5;
   if (/\d/.test(t) || /[@/:]/.test(t)) return -10;
-  if (COMPANY_SUFFIX_RE.test(t) || DESIGNATION_RE.test(t) || ADDRESS_HINT_RE.test(t)) {
-    return -5;
+  if (
+    COMPANY_SUFFIX_RE.test(t) ||
+    DESIGNATION_RE.test(t) ||
+    ADDRESS_HINT_RE.test(t) ||
+    TAGLINE_RE.test(t)
+  ) {
+    return -6;
   }
   const words = t.split(/\s+/);
   if (words.length < 2 || words.length > 4) return 0;
-  const capitalizedWords = words.filter((w) => /^[A-Z][a-zA-Z.'-]+$/.test(w) || /^[A-Z]\.?$/.test(w));
-  if (capitalizedWords.length === words.length) return 6;
-  if (capitalizedWords.length >= words.length - 1) return 3;
+  const titleWords = words.filter(
+    (w) => /^[A-Z][a-z.'-]+$/.test(w) || /^[A-Z]\.?$/.test(w)
+  );
+  if (titleWords.length === words.length) return 6;
+  if (titleWords.length >= words.length - 1) return 3;
+  const allCapsWords = words.filter((w) => /^[A-Z]{2,}$/.test(w));
+  if (allCapsWords.length === words.length) return 2;
   return 0;
+}
+
+function toTitleCaseIfAllCaps(name) {
+  if (!name || name !== name.toUpperCase()) return name;
+  return name
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (m, ch) => ch.toUpperCase());
 }
 
 function inferCategories(fullText, activeCategories = []) {
@@ -345,32 +400,34 @@ function analyzeCardOcr({
   activeCategories = [],
 }) {
   const normalizeLines = (lines, fallbackText, side) => {
-    if (Array.isArray(lines) && lines.length > 0) {
-      return lines
-        .map((l, idx) => ({
-          text: cleanLine(l.text),
-          x: Number(l.x || 0),
-          y: Number(l.y || idx * 30),
-          width: Number(l.width || 0),
-          height: Number(l.height || 18),
-          side,
-          index: idx,
-        }))
-        .filter((l) => l.text.length > 0);
-    }
-    return String(fallbackText || '')
-      .split(/\r?\n/)
-      .map(cleanLine)
-      .filter(Boolean)
-      .map((text, idx) => ({
-        text,
-        x: 0,
-        y: idx * 30,
-        width: 0,
-        height: 18,
-        side,
-        index: idx,
-      }));
+    const base =
+      Array.isArray(lines) && lines.length > 0
+        ? lines
+            .map((l, idx) => ({
+              text: cleanLine(l.text),
+              x: Number(l.x || 0),
+              y: Number(l.y || idx * 30),
+              width: Number(l.width || 0),
+              height: Number(l.height || 18),
+              side,
+              index: idx,
+            }))
+            .filter((l) => l.text.length > 0)
+        : String(fallbackText || '')
+            .split(/\r?\n/)
+            .map(cleanLine)
+            .filter(Boolean)
+            .map((text, idx) => ({
+              text,
+              x: 0,
+              y: idx * 30,
+              width: 0,
+              height: 18,
+              side,
+              index: idx,
+            }));
+
+    return explodeSegmentedLines(base).map((item, idx) => ({ ...item, index: idx }));
   };
 
   const fLines = normalizeLines(frontLines, frontText, 'front');
@@ -387,7 +444,6 @@ function analyzeCardOcr({
     ? (primaryEmail.split('@')[1] || '').split('.')[0]
     : '';
 
-  // Classify lines
   let designation = '';
   let designationLineIdx = -1;
   let companyName = '';
@@ -399,7 +455,8 @@ function analyzeCardOcr({
     EMAIL_RE.lastIndex = 0;
     const hasPhone = extractPhones([l]).length > 0;
     const isUrl = /^(https?:\/\/|www\.)/i.test(stripContactLabels(t));
-    const isAddr = ADDRESS_HINT_RE.test(t) || PIN_RE.test(t);
+    const isTagline = TAGLINE_RE.test(t);
+    const isAddr = ADDRESS_HINT_RE.test(t) || PIN_RE.test(t) || CITY_STATE_RE.test(t);
     const hasCompSuffix = COMPANY_SUFFIX_RE.test(t);
     const hasDesig = DESIGNATION_RE.test(t);
     const nameScore = scoreNameLikelihood(t);
@@ -409,6 +466,7 @@ function analyzeCardOcr({
       hasEmail,
       hasPhone,
       isUrl,
+      isTagline,
       isAddr,
       hasCompSuffix,
       hasDesig,
@@ -416,20 +474,44 @@ function analyzeCardOcr({
     };
   });
 
-  // 1. Find designation line (prefer non-address, non-email line matching job titles)
+  // 0. Check for inline "Person Name - Designation" on a single line
   for (const item of frontScored) {
-    if (!item.hasEmail && !item.hasPhone && !item.isAddr && item.hasDesig && !item.hasCompSuffix) {
-      designation = item.text;
+    if (item.hasEmail || item.hasPhone || item.isAddr || item.hasCompSuffix) continue;
+    const splitMatch = item.text.match(/^([A-Za-z.\s]{4,35})\s+[-–|,/]\s+(.+)$/);
+    if (splitMatch && DESIGNATION_RE.test(splitMatch[2]) && scoreNameLikelihood(splitMatch[1]) >= 2) {
+      contactPerson = toTitleCaseIfAllCaps(splitMatch[1].trim());
+      designation = splitMatch[2].trim();
       designationLineIdx = item.i;
       break;
     }
   }
 
+  // 1. Find designation line if not extracted inline
+  if (!designation) {
+    for (const item of frontScored) {
+      if (
+        !item.hasEmail &&
+        !item.hasPhone &&
+        !item.isAddr &&
+        !item.isTagline &&
+        item.hasDesig &&
+        !item.hasCompSuffix
+      ) {
+        designation = item.text;
+        designationLineIdx = item.i;
+        break;
+      }
+    }
+  }
+
   // 2. Find company name (suffix match > domain match > prominent top line)
   let bestCompanyScore = -1;
+  let companyIdx = -1;
   for (const item of frontScored) {
-    if (item.hasEmail || item.hasPhone || item.isUrl || item.isAddr) continue;
+    if (item.hasEmail || item.hasPhone || item.isUrl || item.isTagline) continue;
+    if (item.isAddr && !item.hasCompSuffix) continue;
     if (item.i === designationLineIdx) continue;
+
     let score = 0;
     if (item.hasCompSuffix) score += 10;
     if (
@@ -437,20 +519,38 @@ function analyzeCardOcr({
       emailDomainRoot.length >= 4 &&
       item.text.toLowerCase().replace(/\s+/g, '').includes(emailDomainRoot)
     ) {
-      score += 6;
+      score += 7;
     }
     if (item.i <= 1) score += 3;
     if (item.text === item.text.toUpperCase() && item.text.length >= 5) score += 2;
     if (item.height >= 24) score += 2;
-    if (item.nameScore >= 5 && !item.hasCompSuffix) score -= 4;
+    if (item.nameScore >= 5 && !item.hasCompSuffix) score -= 5;
 
     if (score > bestCompanyScore && score >= 4) {
       bestCompanyScore = score;
       companyName = item.text;
+      companyIdx = item.i;
     }
   }
 
-  // Fallback company name from top-most non-contact line if still empty
+  // Combine 2-line company names when line immediately before suffix line has no email/phone/person score
+  if (companyIdx > 0 && COMPANY_SUFFIX_RE.test(companyName) && companyName.split(/\s+/).length <= 3) {
+    const prev = frontScored[companyIdx - 1];
+    if (
+      prev &&
+      !prev.hasEmail &&
+      !prev.hasPhone &&
+      !prev.isUrl &&
+      !prev.isAddr &&
+      !prev.isTagline &&
+      !prev.hasDesig &&
+      prev.nameScore < 4 &&
+      prev.text.length <= 28
+    ) {
+      companyName = `${prev.text} ${companyName}`.trim();
+    }
+  }
+
   if (!companyName) {
     const fallback = frontScored.find(
       (item) =>
@@ -458,6 +558,7 @@ function analyzeCardOcr({
         !item.hasPhone &&
         !item.isUrl &&
         !item.isAddr &&
+        !item.isTagline &&
         item.i !== designationLineIdx &&
         item.nameScore < 5
     );
@@ -465,17 +566,20 @@ function analyzeCardOcr({
   }
 
   // 3. Find contact person (line right above designation, or email username match, or highest nameScore)
-  if (designationLineIdx > 0) {
+  if (!contactPerson && designationLineIdx > 0) {
     const above = frontScored[designationLineIdx - 1];
     if (
       above &&
       !above.hasEmail &&
       !above.hasPhone &&
       !above.isAddr &&
+      !above.isTagline &&
       above.text !== companyName &&
       above.nameScore >= 0
     ) {
-      contactPerson = above.text;
+      contactPerson = toTitleCaseIfAllCaps(
+        above.text.replace(/^(?:mr|mrs|ms|dr|er|shri)\.?\s+/i, '')
+      );
     }
   }
 
@@ -483,7 +587,7 @@ function analyzeCardOcr({
     let bestPersonScore = 0;
     for (const item of frontScored) {
       if (item.text === companyName || item.i === designationLineIdx) continue;
-      if (item.hasEmail || item.hasPhone || item.isUrl || item.isAddr) continue;
+      if (item.hasEmail || item.hasPhone || item.isUrl || item.isAddr || item.isTagline) continue;
       let score = item.nameScore + (item.height >= 22 ? 2 : 0);
       if (emailUser) {
         const tokens = item.text.toLowerCase().split(/\s+/);
@@ -493,18 +597,25 @@ function analyzeCardOcr({
       }
       if (score > bestPersonScore) {
         bestPersonScore = score;
-        contactPerson = item.text;
+        contactPerson = toTitleCaseIfAllCaps(
+          item.text.replace(/^(?:mr|mrs|ms|dr|er|shri)\.?\s+/i, '')
+        );
       }
     }
   }
 
-  // 4. Address / Location lines
+  // 4. Address / Location reconstruction
   const addressLines = [];
   for (const item of frontScored) {
-    if (item.text === companyName || item.text === contactPerson || item.i === designationLineIdx) {
+    if (
+      item.text === companyName ||
+      item.text === contactPerson ||
+      item.i === designationLineIdx ||
+      item.isTagline
+    ) {
       continue;
     }
-    if (item.isAddr && !item.hasEmail && !item.isUrl) {
+    if (item.isAddr && !item.hasEmail && !item.isUrl && !item.hasPhone) {
       addressLines.push(stripContactLabels(item.text));
     }
   }
@@ -519,10 +630,9 @@ function analyzeCardOcr({
   const website = websites[0] || '';
   const suggestedCategories = inferCategories(combinedFullText, activeCategories);
 
-  // Per-field confidence scoring
   const fieldConfidence = {
     companyName: companyName ? (bestCompanyScore >= 10 ? 0.94 : 0.78) : 0,
-    contactPerson: contactPerson ? (designationLineIdx > 0 ? 0.92 : 0.8) : 0,
+    contactPerson: contactPerson ? (designationLineIdx >= 0 ? 0.92 : 0.8) : 0,
     designation: designation ? 0.9 : 0,
     mobile: mobile ? 0.93 : 0,
     email: primaryEmail ? 0.96 : 0,

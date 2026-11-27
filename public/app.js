@@ -204,13 +204,11 @@ async function rotateCardImage(side) {
 }
 
 function populateSelectOptions() {
-  const { expos, salesTeam, categories, statuses } = state.bootstrap;
+  const { expos, fixedExpoName, salesTeam, categories, statuses } = state.bootstrap;
 
-  // Capture Expo Select
-  const expoSelect = $('#expoNameSelect');
-  expoSelect.innerHTML =
-    expos.map((e) => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('') +
-    '<option value="__CUSTOM__">+ Add New Expo Name...</option>';
+  // Fixed event display
+  const fixedInput = $('#expoNameFixed');
+  if (fixedInput) fixedInput.value = fixedExpoName || 'IMTEX-2027';
 
   // Capture Salesperson Select
   const activeSales = salesTeam.filter((s) => s.active);
@@ -306,10 +304,30 @@ function loadTesseractJs() {
   return tesseractLoaderPromise;
 }
 
-async function runBrowserTesseractOnImage(Tesseract, dataUrl) {
-  if (!dataUrl) return { text: '', lines: [] };
-  const res = await Tesseract.recognize(dataUrl, 'eng');
-  const lines = (res?.data?.lines || [])
+async function buildHighContrastCanvasUrl(dataUrl, { invert = false } = {}) {
+  const img = await loadImageElement(dataUrl);
+  const scale = img.width < 1200 ? Math.min(2.2, 1400 / Math.max(1, img.width)) : 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * scale);
+  canvas.height = Math.round(img.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    let lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    if (invert) lum = 255 - lum;
+    // Contrast boost around midpoint 128
+    const boosted = Math.max(0, Math.min(255, (lum - 128) * 1.45 + 128));
+    d[i] = d[i + 1] = d[i + 2] = boosted;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return canvas.toDataURL('image/png');
+}
+
+function mapTesseractLines(res) {
+  return (res?.data?.lines || [])
     .map((l) => ({
       text: (l.text || '').trim(),
       x: l.bbox?.x0 || 0,
@@ -318,9 +336,34 @@ async function runBrowserTesseractOnImage(Tesseract, dataUrl) {
       height: (l.bbox?.y1 || 0) - (l.bbox?.y0 || 0),
     }))
     .filter((l) => l.text.length > 0);
+}
+
+async function runBrowserTesseractOnImage(Tesseract, dataUrl) {
+  if (!dataUrl) return { text: '', lines: [] };
+  const pass1Url = await buildHighContrastCanvasUrl(dataUrl, { invert: false }).catch(() => dataUrl);
+  let bestRes = await Tesseract.recognize(pass1Url, 'eng');
+  let bestLines = mapTesseractLines(bestRes);
+
+  // Dark/metallic card fallback: inverted contrast pass if few lines found
+  if (bestLines.length < 4 || (bestRes?.data?.text || '').trim().length < 40) {
+    const pass2Url = await buildHighContrastCanvasUrl(dataUrl, { invert: true }).catch(() => '');
+    if (pass2Url) {
+      const altRes = await Tesseract.recognize(pass2Url, 'eng');
+      const altLines = mapTesseractLines(altRes);
+      if (
+        altLines.length > bestLines.length ||
+        (altLines.length === bestLines.length &&
+          (altRes?.data?.text || '').length > (bestRes?.data?.text || '').length)
+      ) {
+        bestRes = altRes;
+        bestLines = altLines;
+      }
+    }
+  }
+
   return {
-    text: res?.data?.text || '',
-    lines,
+    text: bestRes?.data?.text || '',
+    lines: bestLines,
   };
 }
 
@@ -516,7 +559,8 @@ function resetCaptureForm({ keepBanner = false } = {}) {
   $('#duplicateAlert').classList.add('hidden');
   if (!keepBanner) $('#saveSuccessBanner').classList.add('hidden');
   $('#enquiryDate').value = todayIso();
-  $('#expoNameCustom').classList.add('hidden');
+  const fixedInput = $('#expoNameFixed');
+  if (fixedInput) fixedInput.value = state.bootstrap?.fixedExpoName || 'IMTEX-2027';
   $('#salespersonContactHint').textContent = '';
   $('#ocrModeBadge').textContent = state.health?.geminiConfigured
     ? 'Gemini Vision Ready'
@@ -532,9 +576,7 @@ async function handleSaveEnquiry(e) {
   e.preventDefault();
   clearFormErrors();
 
-  const expoChoice = $('#expoNameSelect').value;
-  const expoName =
-    expoChoice === '__CUSTOM__' ? $('#expoNameCustom').value.trim() : expoChoice;
+  const expoName = state.bootstrap?.fixedExpoName || 'IMTEX-2027';
 
   const payload = {
     expoName,
@@ -1532,10 +1574,6 @@ function wireEvents() {
   );
   $('#cardZoomModal').addEventListener('click', (e) => {
     if (e.target.id === 'cardZoomModal') $('#cardZoomModal').classList.add('hidden');
-  });
-
-  $('#expoNameSelect').addEventListener('change', (e) => {
-    $('#expoNameCustom').classList.toggle('hidden', e.target.value !== '__CUSTOM__');
   });
 
   $('#assignedSalespersonId').addEventListener('change', (e) => {

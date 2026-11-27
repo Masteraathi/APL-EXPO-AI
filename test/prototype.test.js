@@ -111,6 +111,27 @@ test('card analyzer parses spatial OCR lines, PIN state, phones, and industrial 
   assert.ok(analysis.suggestedCategories.includes('Heat Treatment Oils'));
 });
 
+test('card analyzer handles taglines, pipe-packed lines, inline designations, and OCR digit noise', () => {
+  const analysis = analyzeCardOcr({
+    frontLines: [
+      { text: 'BHARAT FORGE', y: 20, height: 26 },
+      { text: 'SYSTEMS PVT. LTD.', y: 48, height: 24 },
+      { text: 'ISO 9001:2015 Certified Company', y: 78, height: 14 },
+      { text: 'Suresh Deshmukh - VP Manufacturing', y: 120, height: 22 },
+      { text: 'M: +91 9822O 55421 | E: s.deshmukh@bharatforgesys.in | W: www.bharatforgesys.in', y: 170, height: 16 },
+      { text: 'Plot B-14, MIDC Chakan, Pune 410501', y: 210, height: 16 },
+    ],
+  });
+
+  assert.equal(analysis.companyName, 'BHARAT FORGE SYSTEMS PVT. LTD.');
+  assert.equal(analysis.contactPerson, 'Suresh Deshmukh');
+  assert.equal(analysis.designation, 'VP Manufacturing');
+  assert.equal(analysis.mobile, '+91 98220 55421');
+  assert.equal(analysis.email, 's.deshmukh@bharatforgesys.in');
+  assert.equal(analysis.website, 'www.bharatforgesys.in');
+  assert.equal(analysis.stateRegion, 'Maharashtra');
+});
+
 test('non-destructive AI extraction preserves verified fields and surfaces conflicts', withTempApp(async ({ request }) => {
   const merged = buildSafeMergeResult(
     {
@@ -176,8 +197,7 @@ test('validates verified contact info, creates enquiry with unique ID, and syncs
   assert.ok(badBody.errors.mobileVerified);
 
   const createRes = await request('POST', '/api/enquiries', {
-    expoName: 'IMTEX 2026 - Bengaluru',
-    enquiryDate: '2026-11-27',
+    enquiryDate: '2027-01-22',
     companyName: 'Test Metals Ltd',
     contactPerson: 'Asha Iyer',
     designation: 'Plant Manager',
@@ -190,12 +210,13 @@ test('validates verified contact info, creates enquiry with unique ID, and syncs
     productCategories: ['Industrial Lubricants', 'Rust Preventives'],
     enquiryRemarks: 'Needs 1,000L hydraulic oil trial.',
     visitPriority: 'HIGH',
-    tentativeVisitDate: '2026-12-10',
+    tentativeVisitDate: '2027-02-10',
     assignedSalespersonId: 'SP-01',
   });
   assert.equal(createRes.status, 201);
   const { enquiry } = createRes.json();
-  assert.match(enquiry.enquiryId, /^APL-2026-\d{4}$/);
+  assert.match(enquiry.enquiryId, /^APL-2027-\d{4}$/);
+  assert.equal(enquiry.expoName, 'IMTEX-2027');
   assert.equal(enquiry.stateRegion, 'Maharashtra');
   assert.equal(enquiry.enquiryStatus, 'Visit Planned');
 
@@ -213,10 +234,10 @@ test('validates verified contact info, creates enquiry with unique ID, and syncs
 }));
 
 test('updates follow-up history, computes dashboard metrics, and manages masters', withTempApp(async ({ request }) => {
-  const patchRes = await request('PATCH', '/api/enquiries/APL-2026-0004', {
+  const patchRes = await request('PATCH', '/api/enquiries/APL-2027-0004', {
     assignedSalespersonId: 'SP-04',
     enquiryStatus: 'Visit Planned',
-    tentativeVisitDate: '2026-12-08',
+    tentativeVisitDate: '2027-02-08',
     newFollowUpNote: 'Assigned to Harpreet; scheduled Ludhiana visit.',
   });
   assert.equal(patchRes.status, 200);
@@ -242,25 +263,25 @@ test('updates follow-up history, computes dashboard metrics, and manages masters
 }));
 
 test('persists cardVerified flag and removes enquiries from JSON and CSV link tables', withTempApp(async ({ request }) => {
-  const patchRes = await request('PATCH', '/api/enquiries/APL-2026-0001', {
+  const patchRes = await request('PATCH', '/api/enquiries/APL-2027-0001', {
     cardVerified: true,
     companyName: 'Bharat Precision Gears Pvt. Ltd.',
   });
   assert.equal(patchRes.status, 200);
   assert.equal(patchRes.json().enquiry.cardVerified, true);
 
-  const delRes = await request('DELETE', '/api/enquiries/APL-2026-0001');
+  const delRes = await request('DELETE', '/api/enquiries/APL-2027-0001');
   assert.equal(delRes.status, 200);
-  assert.equal(delRes.json().deletedId, 'APL-2026-0001');
+  assert.equal(delRes.json().deletedId, 'APL-2027-0001');
 
-  const getDeleted = await request('GET', '/api/enquiries/APL-2026-0001');
+  const getDeleted = await request('GET', '/api/enquiries/APL-2027-0001');
   assert.equal(getDeleted.status, 404);
 
   const csvRes = await request('GET', '/api/export/csv?table=ENQUIRY_CATEGORIES');
   assert.equal(csvRes.status, 200);
-  assert.equal(csvRes.text.includes('APL-2026-0001'), false);
+  assert.equal(csvRes.text.includes('APL-2027-0001'), false);
 
-  const delMissing = await request('DELETE', '/api/enquiries/APL-2026-9999');
+  const delMissing = await request('DELETE', '/api/enquiries/APL-2027-9999');
   assert.equal(delMissing.status, 404);
 }));
 
@@ -333,3 +354,40 @@ test('handles Vercel rewritten URLs, pre-parsed req.body, and client-OCR input',
   assert.equal(parsed.extracted.contactPerson, 'Neha Deshpande');
   assert.equal(parsed.extracted.stateRegion, 'Maharashtra');
 });
+
+test('reads dark-background visiting card via multi-pass inverted high-contrast OCR', withTempApp(async ({ request }) => {
+  const { execFileSync } = require('node:child_process');
+  const tmpPng = path.join(os.tmpdir(), `apl-dark-card-test-${Date.now()}.png`);
+  try {
+    const psScript = `
+      Add-Type -AssemblyName System.Drawing
+      $bmp = New-Object System.Drawing.Bitmap(900, 500)
+      $g = [System.Drawing.Graphics]::FromImage($bmp)
+      $g.Clear([System.Drawing.Color]::FromArgb(15, 41, 66))
+      $fTitle = New-Object System.Drawing.Font("Arial", 22, [System.Drawing.FontStyle]::Bold)
+      $fBody = New-Object System.Drawing.Font("Arial", 16)
+      $w = [System.Drawing.Brushes]::White
+      $g.DrawString("APEX LUBRICANTS INDIA LTD", $fTitle, $w, 40, 50)
+      $g.DrawString("Rajeshwari Menon", $fTitle, $w, 40, 140)
+      $g.DrawString("Head of Procurement", $fBody, $w, 40, 190)
+      $g.DrawString("M: +91 98450 77889", $fBody, $w, 40, 260)
+      $g.DrawString("E: r.menon@apexlubes.in", $fBody, $w, 40, 300)
+      $g.DrawString("Peenya Phase II, Bengaluru 560058", $fBody, $w, 40, 350)
+      $bmp.Save("${tmpPng.replace(/\\/g, '\\\\')}", [System.Drawing.Imaging.ImageFormat]::Png)
+      $g.Dispose(); $bmp.Dispose()
+    `;
+    execFileSync('powershell', ['-NoProfile', '-Command', psScript], { timeout: 15000 });
+    const pngBase64 = fs.readFileSync(tmpPng).toString('base64');
+    const res = await request('POST', '/api/extract-card', {
+      frontCardImage: `data:image/png;base64,${pngBase64}`,
+    });
+    assert.equal(res.status, 200, res.text);
+    const data = res.json();
+    assert.match(data.extracted.companyName, /APEX LUBRICANTS/i);
+    assert.match(data.extracted.contactPerson, /Rajeshwari Menon/i);
+    assert.match(data.extracted.mobile, /98450/);
+    assert.equal(data.extracted.stateRegion, 'Karnataka');
+  } finally {
+    fs.rmSync(tmpPng, { force: true });
+  }
+}));
