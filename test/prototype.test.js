@@ -198,6 +198,15 @@ test('validates contact format, creates enquiry with unique ID, and syncs catego
   assert.ok(badBody.errors.mobile);
   assert.ok(badBody.errors.email);
 
+  const spRes = await request('POST', '/api/master/sales-team', {
+    name: 'Rajesh Kulkarni',
+    email: 'rajesh@apllubes.in',
+    phone: '+91 98220 44110',
+    region: 'Maharashtra',
+  });
+  assert.equal(spRes.status, 201);
+  const spId = spRes.json().salesperson.id;
+
   const createRes = await request('POST', '/api/enquiries', {
     enquiryDate: '2027-01-22',
     companyName: 'Test Metals Ltd',
@@ -211,7 +220,7 @@ test('validates contact format, creates enquiry with unique ID, and syncs catego
     enquiryRemarks: 'Needs 1,000L hydraulic oil trial.',
     visitPriority: 'HIGH',
     tentativeVisitDate: '2027-02-10',
-    assignedSalespersonId: 'SP-01',
+    assignedSalespersonId: spId,
   });
   assert.equal(createRes.status, 201);
   const { enquiry } = createRes.json();
@@ -251,8 +260,17 @@ test('starts with zero example queries and updates follow-up history, dashboard 
   assert.equal(createdRes.status, 201);
   const createdId = createdRes.json().enquiry.enquiryId;
 
+  const spRes = await request('POST', '/api/master/sales-team', {
+    name: 'Harpreet Singh Gill',
+    email: 'harpreet@apllubes.in',
+    phone: '+91 98111 35042',
+    region: 'Punjab',
+  });
+  assert.equal(spRes.status, 201);
+  const spId = spRes.json().salesperson.id;
+
   const patchRes = await request('PATCH', `/api/enquiries/${createdId}`, {
-    assignedSalespersonId: 'SP-04',
+    assignedSalespersonId: spId,
     enquiryStatus: 'Visit Planned',
     tentativeVisitDate: '2027-02-08',
     newFollowUpNote: 'Assigned to Harpreet; scheduled Ludhiana visit.',
@@ -301,6 +319,15 @@ test('persists cardVerified flag, syncs enquiries by field columns to Google She
     assert.equal(cfgRes.json().connectionTest.synced, true);
     assert.equal(sheetCalls[0].body.action, 'ping');
 
+    const spRes = await request('POST', '/api/master/sales-team', {
+      name: 'Rajesh Kulkarni',
+      email: 'rajesh@apllubes.in',
+      phone: '+91 98220 44110',
+      region: 'Maharashtra',
+    });
+    assert.equal(spRes.status, 201);
+    const spId = spRes.json().salesperson.id;
+
     const createRes = await request('POST', '/api/enquiries', {
       enquiryDate: '2027-01-23',
       companyName: 'Bharat Precision Gears Pvt. Ltd.',
@@ -315,7 +342,7 @@ test('persists cardVerified flag, syncs enquiries by field columns to Google She
       enquiryRemarks: 'Needs semi-synthetic coolant trial.',
       visitPriority: 'HIGH',
       tentativeVisitDate: '2027-02-05',
-      assignedSalespersonId: 'SP-01',
+      assignedSalespersonId: spId,
     });
     assert.equal(createRes.status, 201);
     const { enquiry, googleSheetsSync } = createRes.json();
@@ -407,6 +434,77 @@ test('flags HTML login response from Apps Script as failed sync instead of false
     assert.equal(cfgRes.json().connectionTest.synced, false);
     assert.match(cfgRes.json().connectionTest.message, /HTML page/i);
   }, { sheetsFetch: htmlFetch })();
+});
+
+test('SALES_TEAM starts empty and supports New, Update, and Delete with CSV & Sheet sync', async () => {
+  const sheetCalls = [];
+  const mockFetch = async (url, opts) => {
+    sheetCalls.push(JSON.parse(opts.body));
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({ ok: true, message: 'OK' });
+      },
+    };
+  };
+
+  await withTempApp(async ({ request }) => {
+    const bootRes = await request('GET', '/api/bootstrap');
+    assert.equal(bootRes.status, 200);
+    assert.equal(bootRes.json().salesTeam.length, 0);
+
+    await request('POST', '/api/sheets/config', {
+      webhookUrl: 'https://script.google.com/macros/s/demo/exec',
+      test: false,
+    });
+
+    const add1 = await request('POST', '/api/master/sales-team', {
+      name: 'Kavita Rao',
+      email: 'kavita@apl.in',
+      phone: '+91 98450 11111',
+      region: 'Karnataka',
+    });
+    assert.equal(add1.status, 201);
+    assert.equal(add1.json().salesperson.id, 'SP-01');
+
+    const add2 = await request('POST', '/api/master/sales-team', {
+      name: 'Manish Verma',
+      email: 'manish@apl.in',
+      phone: '+91 98110 22222',
+      region: 'Delhi NCR',
+    });
+    assert.equal(add2.status, 201);
+    assert.equal(add2.json().salesperson.id, 'SP-02');
+
+    const upd = await request('PATCH', '/api/master/sales-team/SP-01', {
+      name: 'Kavita R. Rao',
+      region: 'Bengaluru / Mysuru',
+      active: false,
+    });
+    assert.equal(upd.status, 200);
+    assert.equal(upd.json().salesperson.name, 'Kavita R. Rao');
+    assert.equal(upd.json().salesperson.active, false);
+
+    const del = await request('DELETE', '/api/master/sales-team/SP-01');
+    assert.equal(del.status, 200);
+    assert.equal(del.json().deletedId, 'SP-01');
+
+    // Adding after delete should generate SP-03 (never collide with SP-02)
+    const add3 = await request('POST', '/api/master/sales-team', {
+      name: 'Deepak Nair',
+      region: 'Kerala',
+    });
+    assert.equal(add3.status, 201);
+    assert.equal(add3.json().salesperson.id, 'SP-03');
+
+    const csvRes = await request('GET', '/api/export/csv?table=SALES_TEAM');
+    assert.equal(csvRes.status, 200);
+    assert.equal(csvRes.text.includes('Kavita'), false);
+    assert.match(csvRes.text, /SP-02,Manish Verma/);
+    assert.match(csvRes.text, /SP-03,Deepak Nair/);
+    assert.ok(sheetCalls.some((c) => c.action === 'syncSalesTeam'));
+  }, { sheetsFetch: mockFetch })();
 });
 
 test('runs real raster PNG OCR through Windows OCR + Card NLP Analyzer', withTempApp(async ({ request }) => {

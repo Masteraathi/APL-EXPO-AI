@@ -210,6 +210,24 @@ async function syncAllToSheet(state, webhookUrl, fetchImpl) {
   );
 }
 
+async function syncSalesTeamToSheet(salesTeam, webhookUrl, fetchImpl) {
+  return postToSheetsWebhook(
+    webhookUrl,
+    {
+      action: 'syncSalesTeam',
+      salesTeam: (salesTeam || []).map((s) => ({
+        'Salesperson ID': s.id,
+        Name: s.name,
+        Email: s.email || '',
+        Phone: s.phone || '',
+        Region: s.region || '',
+        Active: s.active ? 'TRUE' : 'FALSE',
+      })),
+    },
+    fetchImpl
+  );
+}
+
 async function testSheetConnection(webhookUrl, fetchImpl) {
   return postToSheetsWebhook(webhookUrl, { action: 'ping' }, fetchImpl);
 }
@@ -221,5 +239,6 @@ module.exports = {
   syncEnquiryToSheet,
   deleteEnquiryFromSheet,
   syncAllToSheet,
+  syncSalesTeamToSheet,
   testSheetConnection,
 };

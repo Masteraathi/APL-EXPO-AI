@@ -16,6 +16,7 @@ const {
   syncEnquiryToSheet,
   deleteEnquiryFromSheet,
   syncAllToSheet,
+  syncSalesTeamToSheet,
   testSheetConnection,
 } = require('./googleSheetsSync');
 
@@ -386,16 +387,41 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) 
       if (method === 'POST' && pathname === '/api/master/sales-team') {
         const body = await readJsonBody(req);
         const salesperson = store.addSalesperson(body);
-        sendJson(res, 201, { salesperson });
+        const state = store.readState();
+        const googleSheetsSync = await syncSalesTeamToSheet(
+          state.salesTeam,
+          resolveWebhookUrl(req, store, body),
+          sheetsFetch
+        );
+        sendJson(res, 201, { salesperson, googleSheetsSync });
         return;
       }
 
-      if (method === 'PATCH' && pathname.startsWith('/api/master/sales-team/')) {
+      if (pathname.startsWith('/api/master/sales-team/')) {
         const id = decodeURIComponent(pathname.slice('/api/master/sales-team/'.length));
-        const body = await readJsonBody(req);
-        const salesperson = store.updateSalesperson(id, body);
-        sendJson(res, 200, { salesperson });
-        return;
+        if (method === 'PATCH') {
+          const body = await readJsonBody(req);
+          const salesperson = store.updateSalesperson(id, body);
+          const state = store.readState();
+          const googleSheetsSync = await syncSalesTeamToSheet(
+            state.salesTeam,
+            resolveWebhookUrl(req, store, body),
+            sheetsFetch
+          );
+          sendJson(res, 200, { salesperson, googleSheetsSync });
+          return;
+        }
+        if (method === 'DELETE') {
+          const removed = store.deleteSalesperson(id);
+          const state = store.readState();
+          const googleSheetsSync = await syncSalesTeamToSheet(
+            state.salesTeam,
+            resolveWebhookUrl(req, store),
+            sheetsFetch
+          );
+          sendJson(res, 200, { ok: true, deletedId: removed.id, googleSheetsSync });
+          return;
+        }
       }
 
       sendJson(res, 404, { error: 'API route not found' });

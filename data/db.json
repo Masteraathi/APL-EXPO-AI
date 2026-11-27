@@ -49,92 +49,12 @@
       "active": true
     }
   ],
-  "salesTeam": [
-    {
-      "id": "SP-01",
-      "name": "Rajesh Kulkarni",
-      "email": "rajesh.kulkarni@apllubes.example",
-      "phone": "+91 98220 44110",
-      "region": "Maharashtra (Pune / Nashik)",
-      "active": true
-    },
-    {
-      "id": "SP-02",
-      "name": "Ananya Subramanian",
-      "email": "ananya.s@apllubes.example",
-      "phone": "+91 98401 77230",
-      "region": "Tamil Nadu (Chennai / Coimbatore)",
-      "active": true
-    },
-    {
-      "id": "SP-03",
-      "name": "Vikramaditya Mehta",
-      "email": "vikram.mehta@apllubes.example",
-      "phone": "+91 98250 61890",
-      "region": "Gujarat (Ahmedabad / Rajkot)",
-      "active": true
-    },
-    {
-      "id": "SP-04",
-      "name": "Harpreet Singh Gill",
-      "email": "harpreet.gill@apllubes.example",
-      "phone": "+91 98111 35042",
-      "region": "North NCR / Punjab (Gurugram / Ludhiana)",
-      "active": true
-    },
-    {
-      "id": "SP-05",
-      "name": "Siddharth Nair",
-      "email": "siddharth.nair@apllubes.example",
-      "phone": "+91 98450 22918",
-      "region": "Karnataka (Bengaluru / Belagavi)",
-      "active": true
-    }
-  ],
+  "salesTeam": [],
   "expos": [
     "IMTEX-2027"
   ],
-  "enquiries": [
-    {
-      "enquiryId": "APL-2026-0001",
-      "expoName": "IMTEX-2027",
-      "enquiryDate": "2026-11-27",
-      "frontCardImage": "",
-      "backCardImage": "",
-      "companyName": "ARABIA",
-      "contactPerson": "Aathithya Sivakumar",
-      "designation": "sdsd",
-      "mobile": "+91 98339 30223",
-      "email": "aathithyasiva1904@gmail.com",
-      "location": "215,viswanathadass Colony",
-      "stateRegion": "Tamil Nadu",
-      "website": "sjsiodjiosj",
-      "mobileVerified": false,
-      "emailVerified": false,
-      "cardVerified": true,
-      "productCategories": [
-        "Metalworking Fluids"
-      ],
-      "enquiryRemarks": "",
-      "visitPriority": "MEDIUM",
-      "tentativeVisitDate": "",
-      "assignedSalespersonId": "",
-      "assignedSalesperson": "",
-      "enquiryStatus": "New",
-      "followUpRemarks": "",
-      "followUpHistory": [
-        {
-          "timestamp": "2026-11-27T11:23:12.122Z",
-          "actor": "Expo Booth Rep",
-          "status": "New",
-          "note": "Enquiry captured at IMTEX-2027."
-        }
-      ],
-      "createdAt": "2026-11-27T11:23:12.122Z",
-      "updatedAt": "2026-11-27T11:23:12.122Z"
-    }
-  ],
+  "enquiries": [],
   "settings": {
-    "sheetsWebhookUrl": "https://script.google.com/macros/s/AKfycbyL-ksDgei9Jv0wpcan4uMlv_KiFr1IQIKPmU8jxKyZLQLiD_tXIKNWphsGisXAgCarbA/exec"
+    "sheetsWebhookUrl": ""
   }
 }

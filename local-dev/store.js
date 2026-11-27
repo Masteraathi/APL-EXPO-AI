@@ -725,7 +725,15 @@ class ExpoStore {
       err.statusCode = 400;
       throw err;
     }
-    const nextNum = state.salesTeam.length + 1;
+    let maxNum = 0;
+    for (const s of state.salesTeam) {
+      const m = String(s.id || '').match(/^SP-(\d+)$/);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    }
+    const nextNum = maxNum + 1;
     const person = {
       id: `SP-${String(nextNum).padStart(2, '0')}`,
       name: cleanName,
@@ -763,6 +771,19 @@ class ExpoStore {
     if (patch.active !== undefined) sp.active = Boolean(patch.active);
     this.writeState(state);
     return sp;
+  }
+
+  deleteSalesperson(id) {
+    const state = this.readState();
+    const idx = state.salesTeam.findIndex((s) => s.id === id);
+    if (idx === -1) {
+      const err = new Error('Salesperson not found');
+      err.statusCode = 404;
+      throw err;
+    }
+    const [removed] = state.salesTeam.splice(idx, 1);
+    this.writeState(state);
+    return removed;
   }
 
   getCsvContent(tableName) {

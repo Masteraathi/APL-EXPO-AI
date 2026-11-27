@@ -267,6 +267,22 @@ function upsertRowByKey(sheet, fallbackHeaders, keyColName, rowObj) {
   return 'inserted';
 }
 
+function replaceSalesTeamRows(salesSheet, team) {
+  var headers = getSheetHeaders(salesSheet, SALES_HEADERS);
+  var lastRow = salesSheet.getLastRow();
+  if (lastRow > 1) {
+    salesSheet.deleteRows(2, lastRow - 1);
+  }
+  if (team && team.length) {
+    var rows = team.map(function (sp) {
+      return headers.map(function (h) {
+        return sp[h] !== undefined && sp[h] !== null ? sp[h] : '';
+      });
+    });
+    salesSheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  }
+}
+
 function replaceCategoryLinks(linkSheet, enquiryId, links) {
   var headers = getSheetHeaders(linkSheet, LINK_HEADERS);
   var enqCol = headers.indexOf('Enquiry ID') + 1;
@@ -408,16 +424,20 @@ function doPost(e) {
         upsertRowByKey(catSheet, CATEGORY_HEADERS, 'Category ID', cats[c]);
       }
       var team = payload.salesTeam || [];
-      for (var s = 0; s < team.length; s++) {
-        upsertRowByKey(salesSheet, SALES_HEADERS, 'Salesperson ID', team[s]);
-      }
-
+      replaceSalesTeamRows(salesSheet, team);
       formatAllSheetsVisible();
       return jsonOut({
         ok: true,
         message: 'Synced ' + enquiries.length + ' enquiries & made all fields visible in ' + ss.getName(),
         visibleColumns: ENQUIRY_HEADERS,
       });
+    }
+
+    if (action === 'syncSalesTeam') {
+      var spSheet = getOrCreateSheet(ss, 'SALES_TEAM', SALES_HEADERS);
+      replaceSalesTeamRows(spSheet, payload.salesTeam || []);
+      makeSheetColumnsVisible(spSheet, SALES_HEADERS.length);
+      return jsonOut({ ok: true, message: 'SALES_TEAM updated in Google Sheet' });
     }
 
     return jsonOut({ ok: false, error: 'Unsupported action: ' + action });

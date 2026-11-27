@@ -18,6 +18,7 @@ const state = {
   calendarYear: 2026,
   calendarMonth: 10, // 0-indexed -> November 2026
   webcamStream: null,
+  editingSalespersonId: '',
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -1366,18 +1367,44 @@ function renderMastersLists() {
     )
     .join('');
 
-  $('#masterSalesTeamList').innerHTML = state.bootstrap.salesTeam
-    .map(
-      (sp) => `<div class="master-row ${sp.active ? '' : 'inactive'}">
+  const team = state.bootstrap.salesTeam || [];
+  if (!team.length) {
+    $('#masterSalesTeamList').innerHTML =
+      '<div class="muted small" style="padding:10px 0;">No salespeople added yet. Add your sales team members above.</div>';
+    return;
+  }
+
+  $('#masterSalesTeamList').innerHTML = team
+    .map((sp) => {
+      if (state.editingSalespersonId === sp.id) {
+        return `<form class="master-row master-edit-row" data-sp-edit-form="${escapeHtml(sp.id)}">
+          <div class="master-edit-grid">
+            <input type="text" name="name" value="${escapeHtml(sp.name)}" placeholder="Full name" required />
+            <input type="email" name="email" value="${escapeHtml(sp.email || '')}" placeholder="Email" />
+            <input type="tel" name="phone" value="${escapeHtml(sp.phone || '')}" placeholder="Phone" />
+            <input type="text" name="region" value="${escapeHtml(sp.region || '')}" placeholder="Region" />
+          </div>
+          <div class="master-row-actions">
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-cancel-edit-sp>Cancel</button>
+          </div>
+        </form>`;
+      }
+
+      return `<div class="master-row ${sp.active ? '' : 'inactive'}">
         <div>
           <strong>${escapeHtml(sp.name)}</strong> <span class="small muted">(${escapeHtml(sp.region)})</span>
-          <div class="small muted">${escapeHtml(sp.email)} · ${escapeHtml(sp.phone)}</div>
+          <div class="small muted">${escapeHtml(sp.email || '—')} · ${escapeHtml(sp.phone || '—')}</div>
         </div>
-        <button type="button" class="btn btn-outline btn-sm" data-toggle-sp="${escapeHtml(sp.id)}" data-active="${!sp.active}">
-          ${sp.active ? 'Disable' : 'Enable'}
-        </button>
-      </div>`
-    )
+        <div class="master-row-actions">
+          <button type="button" class="btn btn-outline btn-sm" data-edit-sp="${escapeHtml(sp.id)}">Edit</button>
+          <button type="button" class="btn btn-outline btn-sm" data-toggle-sp="${escapeHtml(sp.id)}" data-active="${!sp.active}">
+            ${sp.active ? 'Disable' : 'Enable'}
+          </button>
+          <button type="button" class="btn btn-danger-outline btn-sm" data-delete-sp="${escapeHtml(sp.id)}">Delete</button>
+        </div>
+      </div>`;
+    })
     .join('');
 }
 
@@ -1531,6 +1558,48 @@ function wireEvents() {
       return;
     }
 
+    const editSp = e.target.closest('[data-edit-sp]');
+    if (editSp) {
+      state.editingSalespersonId = editSp.dataset.editSp;
+      renderMastersLists();
+      return;
+    }
+
+    if (e.target.closest('[data-cancel-edit-sp]')) {
+      state.editingSalespersonId = '';
+      renderMastersLists();
+      return;
+    }
+
+    const deleteSp = e.target.closest('[data-delete-sp]');
+    if (deleteSp) {
+      if (!deleteSp.dataset.armed) {
+        deleteSp.dataset.armed = '1';
+        deleteSp.textContent = 'Confirm?';
+        deleteSp.classList.remove('btn-danger-outline');
+        deleteSp.classList.add('btn-danger');
+        setTimeout(() => {
+          if (deleteSp.isConnected && deleteSp.dataset.armed === '1') {
+            delete deleteSp.dataset.armed;
+            deleteSp.textContent = 'Delete';
+            deleteSp.classList.remove('btn-danger');
+            deleteSp.classList.add('btn-danger-outline');
+          }
+        }, 4000);
+        return;
+      }
+      api(`/api/master/sales-team/${encodeURIComponent(deleteSp.dataset.deleteSp)}`, {
+        method: 'DELETE',
+      })
+        .then(() => {
+          showToast('Salesperson deleted');
+          return refreshBootstrapAndCount();
+        })
+        .then(() => loadMastersView())
+        .catch((err) => showToast(err.message));
+      return;
+    }
+
     const toggleSp = e.target.closest('[data-toggle-sp]');
     if (toggleSp) {
       api(`/api/master/sales-team/${encodeURIComponent(toggleSp.dataset.toggleSp)}`, {
@@ -1540,6 +1609,31 @@ function wireEvents() {
         .then(() => refreshBootstrapAndCount())
         .then(() => loadMastersView())
         .catch((err) => showToast(err.message));
+    }
+  });
+
+  document.addEventListener('submit', async (e) => {
+    const spEditForm = e.target.closest('[data-sp-edit-form]');
+    if (!spEditForm) return;
+    e.preventDefault();
+    const id = spEditForm.dataset.spEditForm;
+    const fd = new FormData(spEditForm);
+    try {
+      await api(`/api/master/sales-team/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: String(fd.get('name') || '').trim(),
+          email: String(fd.get('email') || '').trim(),
+          phone: String(fd.get('phone') || '').trim(),
+          region: String(fd.get('region') || '').trim(),
+        }),
+      });
+      state.editingSalespersonId = '';
+      showToast('Salesperson updated');
+      await refreshBootstrapAndCount();
+      await loadMastersView();
+    } catch (err) {
+      showToast(err.message);
     }
   });
 

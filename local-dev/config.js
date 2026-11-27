@@ -97,48 +97,7 @@ const DEFAULT_CATEGORIES = [
   },
 ];
 
-const DEFAULT_SALES_TEAM = [
-  {
-    id: 'SP-01',
-    name: 'Rajesh Kulkarni',
-    email: 'rajesh.kulkarni@apllubes.example',
-    phone: '+91 98220 44110',
-    region: 'Maharashtra (Pune / Nashik)',
-    active: true,
-  },
-  {
-    id: 'SP-02',
-    name: 'Ananya Subramanian',
-    email: 'ananya.s@apllubes.example',
-    phone: '+91 98401 77230',
-    region: 'Tamil Nadu (Chennai / Coimbatore)',
-    active: true,
-  },
-  {
-    id: 'SP-03',
-    name: 'Vikramaditya Mehta',
-    email: 'vikram.mehta@apllubes.example',
-    phone: '+91 98250 61890',
-    region: 'Gujarat (Ahmedabad / Rajkot)',
-    active: true,
-  },
-  {
-    id: 'SP-04',
-    name: 'Harpreet Singh Gill',
-    email: 'harpreet.gill@apllubes.example',
-    phone: '+91 98111 35042',
-    region: 'North NCR / Punjab (Gurugram / Ludhiana)',
-    active: true,
-  },
-  {
-    id: 'SP-05',
-    name: 'Siddharth Nair',
-    email: 'siddharth.nair@apllubes.example',
-    phone: '+91 98450 22918',
-    region: 'Karnataka (Bengaluru / Belagavi)',
-    active: true,
-  },
-];
+const DEFAULT_SALES_TEAM = [];
 
 const FIXED_EXPO_NAME = 'IMTEX-2027';
 
