@@ -142,6 +142,14 @@ function serveStatic(req, res, pathname) {
   });
 }
 
+function resolveWebhookUrl(req, store, body) {
+  return (
+    store.getSheetsWebhookUrl() ||
+    String(req.headers['x-sheets-webhook-url'] || '').trim() ||
+    String(body?.sheetsWebhookUrl || '').trim()
+  );
+}
+
 function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) {
   const store = new ExpoStore(dataDir);
 
@@ -210,7 +218,7 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) 
         const googleSheetsSync = await syncEnquiryToSheet(
           created,
           state.categories,
-          store.getSheetsWebhookUrl(),
+          resolveWebhookUrl(req, store, body),
           sheetsFetch
         );
         sendJson(res, 201, { enquiry: created, googleSheetsSync });
@@ -241,7 +249,7 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) 
           const googleSheetsSync = await syncEnquiryToSheet(
             updated,
             state.categories,
-            store.getSheetsWebhookUrl(),
+            resolveWebhookUrl(req, store, body),
             sheetsFetch
           );
           sendJson(res, 200, { enquiry: updated, googleSheetsSync });
@@ -251,7 +259,7 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) 
           const removed = store.deleteEnquiry(enquiryId);
           const googleSheetsSync = await deleteEnquiryFromSheet(
             removed.enquiryId,
-            store.getSheetsWebhookUrl(),
+            resolveWebhookUrl(req, store),
             sheetsFetch
           );
           sendJson(res, 200, { ok: true, deletedId: removed.enquiryId, googleSheetsSync });
@@ -260,7 +268,7 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) 
       }
 
       if (method === 'GET' && pathname === '/api/sheets/status') {
-        const url = store.getSheetsWebhookUrl();
+        const url = resolveWebhookUrl(req, store);
         sendJson(res, 200, {
           configured: Boolean(url),
           fromEnv: Boolean(process.env.GOOGLE_SHEETS_WEBHOOK_URL),
@@ -286,8 +294,13 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) 
       }
 
       if (method === 'POST' && pathname === '/api/sheets/sync-all') {
+        const body = await readJsonBody(req);
         const state = store.readState();
-        const result = await syncAllToSheet(state, store.getSheetsWebhookUrl(), sheetsFetch);
+        const result = await syncAllToSheet(
+          state,
+          resolveWebhookUrl(req, store, body),
+          sheetsFetch
+        );
         sendJson(res, result.synced ? 200 : 400, result);
         return;
       }

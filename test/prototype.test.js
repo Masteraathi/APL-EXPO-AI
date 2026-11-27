@@ -358,6 +358,26 @@ test('persists cardVerified flag, syncs enquiries by field columns to Google She
   }, { sheetsFetch: mockFetch })();
 });
 
+test('flags HTML login response from Apps Script as failed sync instead of false success', async () => {
+  const htmlFetch = async () => ({
+    ok: true,
+    status: 200,
+    async text() {
+      return '<!doctype html><html><body>Google Sign In</body></html>';
+    },
+  });
+
+  await withTempApp(async ({ request }) => {
+    const cfgRes = await request('POST', '/api/sheets/config', {
+      webhookUrl: 'https://script.google.com/macros/s/private-script/exec',
+      test: true,
+    });
+    assert.equal(cfgRes.status, 200);
+    assert.equal(cfgRes.json().connectionTest.synced, false);
+    assert.match(cfgRes.json().connectionTest.message, /HTML page/i);
+  }, { sheetsFetch: htmlFetch })();
+});
+
 test('runs real raster PNG OCR through Windows OCR + Card NLP Analyzer', withTempApp(async ({ request }) => {
   const { execFileSync } = require('node:child_process');
   const tmpPng = path.join(os.tmpdir(), `apl-card-ocr-test-${Date.now()}.png`);

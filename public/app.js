@@ -41,8 +41,10 @@ function showToast(message) {
 }
 
 async function api(url, options = {}) {
+  const savedSheetUrl = localStorage.getItem('apl_sheets_webhook_url') || '';
+  const extraHeaders = savedSheetUrl ? { 'X-Sheets-Webhook-Url': savedSheetUrl } : {};
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    headers: { 'Content-Type': 'application/json', ...extraHeaders, ...(options.headers || {}) },
     ...options,
   });
   const data = await res.json().catch(() => ({}));
@@ -1319,8 +1321,13 @@ async function loadMastersView() {
     ]);
     renderMastersLists();
     if ($('#sheetsWebhookUrlInput')) {
-      $('#sheetsWebhookUrlInput').value = sheetsStatus.webhookUrl || '';
-      $('#sheetsSyncStatusBadge').textContent = sheetsStatus.configured
+      const localUrl = localStorage.getItem('apl_sheets_webhook_url') || '';
+      const effectiveUrl = sheetsStatus.webhookUrl || localUrl;
+      if (sheetsStatus.webhookUrl) {
+        localStorage.setItem('apl_sheets_webhook_url', sheetsStatus.webhookUrl);
+      }
+      $('#sheetsWebhookUrlInput').value = effectiveUrl;
+      $('#sheetsSyncStatusBadge').textContent = effectiveUrl
         ? 'Connected'
         : 'Local Only (Not Linked)';
     }
@@ -1694,10 +1701,14 @@ function wireEvents() {
   $('#sheetsConfigForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
+      const urlVal = $('#sheetsWebhookUrlInput').value.trim();
+      if (urlVal) localStorage.setItem('apl_sheets_webhook_url', urlVal);
+      else localStorage.removeItem('apl_sheets_webhook_url');
+
       const resp = await api('/api/sheets/config', {
         method: 'POST',
         body: JSON.stringify({
-          webhookUrl: $('#sheetsWebhookUrlInput').value.trim(),
+          webhookUrl: urlVal,
           test: true,
         }),
       });

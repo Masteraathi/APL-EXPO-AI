@@ -71,6 +71,15 @@ function setupWorkbook() {
   getOrCreateSheet(ss, 'PRODUCT_CATEGORIES', CATEGORY_HEADERS);
   getOrCreateSheet(ss, 'SALES_TEAM', SALES_HEADERS);
   getOrCreateSheet(ss, 'ENQUIRY_CATEGORIES', LINK_HEADERS);
+  // Pre-authorize Drive folder access during setup
+  try {
+    var folders = DriveApp.getFoldersByName('APL_EXPO_AI_CARDS');
+    if (!folders.hasNext()) {
+      DriveApp.createFolder('APL_EXPO_AI_CARDS');
+    }
+  } catch (err) {
+    // Drive optional
+  }
 }
 
 function verifySecret(payload) {

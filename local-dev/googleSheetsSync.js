@@ -97,18 +97,31 @@ async function postToSheetsWebhook(webhookUrl, body, fetchImpl = fetch) {
     });
 
     const text = await res.text();
-    let parsed = {};
+    let parsed = null;
     try {
       parsed = JSON.parse(text);
     } catch {
-      parsed = { raw: text.slice(0, 200) };
+      parsed = null;
     }
 
-    if (!res.ok || parsed.ok === false) {
+    if (!res.ok) {
       return {
         synced: false,
         configured: true,
-        message: parsed.error || `Google Sheets sync HTTP ${res.status}`,
+        message: (parsed && parsed.error) || `Google Sheets sync HTTP ${res.status}`,
+      };
+    }
+
+    if (!parsed || parsed.ok !== true) {
+      const looksHtml = /^\s*</.test(text);
+      return {
+        synced: false,
+        configured: true,
+        message:
+          (parsed && parsed.error) ||
+          (looksHtml
+            ? 'Google Apps Script returned an HTML page instead of JSON. Deploy Web App with "Execute as: Me" and "Who has access: Anyone", and use the /exec URL.'
+            : 'Google Sheets Web App did not return ok:true.'),
       };
     }
 
