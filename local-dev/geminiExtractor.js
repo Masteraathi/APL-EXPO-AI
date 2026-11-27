@@ -241,11 +241,15 @@ async function callGeminiVision({ frontPart, backPart, categories }) {
 async function extractBusinessCard({
   frontCardImage = '',
   backCardImage = '',
+  clientOcrText = '',
+  clientOcrBackText = '',
+  clientOcrLines = [],
+  clientOcrBackLines = [],
   existingFields = {},
   verifiedFields = {},
   categories = [],
 }) {
-  if (!frontCardImage && !backCardImage) {
+  if (!frontCardImage && !backCardImage && !clientOcrText && !clientOcrLines.length) {
     const err = new Error('Please capture or upload at least one business card image.');
     err.statusCode = 400;
     throw err;
@@ -253,7 +257,7 @@ async function extractBusinessCard({
 
   const frontPart = parseBase64DataUrl(frontCardImage);
   const backPart = parseBase64DataUrl(backCardImage);
-  if (!frontPart && !backPart) {
+  if (!frontPart && !backPart && !clientOcrText && !clientOcrLines.length) {
     const err = new Error('Invalid image format. Expected base64 data URL.');
     err.statusCode = 400;
     throw err;
@@ -261,17 +265,30 @@ async function extractBusinessCard({
 
   const hasRasterImage =
     (frontPart && !frontPart.isSvg) || (backPart && !backPart.isSvg);
+  const hasClientOcr =
+    Boolean(String(clientOcrText || '').trim()) ||
+    Boolean(String(clientOcrBackText || '').trim()) ||
+    (Array.isArray(clientOcrLines) && clientOcrLines.length > 0);
 
   let analyzed;
   let extractionSource = 'local-win-ocr-nlp';
   let warning = '';
 
-  if (GEMINI_API_KEY && hasRasterImage) {
+  if (hasClientOcr) {
+    extractionSource = 'browser-ocr-nlp';
+    analyzed = analyzeCardOcr({
+      frontLines: clientOcrLines,
+      backLines: clientOcrBackLines,
+      frontText: clientOcrText,
+      backText: clientOcrBackText,
+      activeCategories: categories,
+    });
+  } else if (GEMINI_API_KEY && hasRasterImage) {
     try {
       analyzed = await callGeminiVision({ frontPart, backPart, categories });
       extractionSource = `gemini:${GEMINI_MODEL}`;
     } catch (error) {
-      warning = `Gemini Vision unavailable (${error.message}); fell back to Local Card OCR Analyzer.`;
+      warning = `Gemini Vision unavailable (${error.message}); using Card OCR Analyzer.`;
     }
   }
 
@@ -279,18 +296,40 @@ async function extractBusinessCard({
     const svgFrontLines = frontPart?.isSvg ? extractSvgLines(frontPart.base64Data) : [];
     const svgBackLines = backPart?.isSvg ? extractSvgLines(backPart.base64Data) : [];
 
-    let winOcr = { frontLines: [], backLines: [], frontText: '', backText: '' };
-    if (hasRasterImage) {
-      winOcr = await runWindowsOcr(frontPart, backPart);
+    if (hasRasterImage && !svgFrontLines.length && !svgBackLines.length) {
+      if (process.platform === 'win32') {
+        const winOcr = await runWindowsOcr(frontPart, backPart);
+        analyzed = analyzeCardOcr({
+          frontLines: winOcr.frontLines,
+          backLines: winOcr.backLines,
+          frontText: winOcr.frontText,
+          backText: winOcr.backText,
+          activeCategories: categories,
+        });
+      } else {
+        // Serverless Linux (e.g. Vercel) without GEMINI_API_KEY: delegate OCR to browser Tesseract.js
+        return {
+          needsClientOcr: true,
+          extractionSource: 'client-ocr-required',
+          warning:
+            'Running browser OCR (configure GEMINI_API_KEY in environment variables for Gemini Vision AI).',
+          extracted: existingFields,
+          rawExtracted: {},
+          suggestedCategories: [],
+          confidence: 0,
+          ocrLines: [],
+          preservedVerified: [],
+          conflicts: [],
+          requiresReview: true,
+        };
+      }
+    } else {
+      analyzed = analyzeCardOcr({
+        frontLines: svgFrontLines,
+        backLines: svgBackLines,
+        activeCategories: categories,
+      });
     }
-
-    analyzed = analyzeCardOcr({
-      frontLines: svgFrontLines.length ? svgFrontLines : winOcr.frontLines,
-      backLines: svgBackLines.length ? svgBackLines : winOcr.backLines,
-      frontText: winOcr.frontText,
-      backText: winOcr.backText,
-      activeCategories: categories,
-    });
   }
 
   const { merged, preservedVerified, conflicts } = buildSafeMergeResult(

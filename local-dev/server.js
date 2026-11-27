@@ -46,6 +46,29 @@ function sendError(res, error) {
 }
 
 function readJsonBody(req, maxBytes = 15 * 1024 * 1024) {
+  if (req.body !== undefined) {
+    if (typeof req.body === 'string') {
+      try {
+        return Promise.resolve(req.body ? JSON.parse(req.body) : {});
+      } catch {
+        const err = new Error('Invalid JSON request body');
+        err.statusCode = 400;
+        return Promise.reject(err);
+      }
+    }
+    if (Buffer.isBuffer(req.body)) {
+      try {
+        const str = req.body.toString('utf8');
+        return Promise.resolve(str ? JSON.parse(str) : {});
+      } catch {
+        const err = new Error('Invalid JSON request body');
+        err.statusCode = 400;
+        return Promise.reject(err);
+      }
+    }
+    return Promise.resolve(req.body || {});
+  }
+
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
@@ -132,7 +155,9 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR } = {}) {
           service: 'APL EXPO AI Web Application',
           geminiConfigured: Boolean(GEMINI_API_KEY),
           geminiModel: GEMINI_MODEL,
-          storageMode: 'local-json-csv',
+          platform: process.platform,
+          vercel: Boolean(process.env.VERCEL),
+          storageMode: process.env.VERCEL ? 'vercel-tmp-json-csv' : 'local-json-csv',
         });
         return;
       }

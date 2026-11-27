@@ -302,3 +302,34 @@ test('runs real raster PNG OCR through Windows OCR + Card NLP Analyzer', withTem
     fs.rmSync(tmpPng, { force: true });
   }
 }));
+
+test('handles Vercel rewritten URLs, pre-parsed req.body, and client-OCR input', async () => {
+  const vercelHandler = require('../api/index');
+  let status = 0;
+  let body = '';
+  const mockReq = {
+    method: 'POST',
+    url: '/api/index.js?__path=/api/extract-card',
+    headers: { host: 'apl-expo-ai.vercel.app' },
+    body: {
+      clientOcrText:
+        'SIGMA PRECISION TOOLS PVT LTD\nNeha Deshpande\nProcurement Manager\nM: +91 98230 11223\nE: neha@sigmatools.in\nMIDC Waluj, Aurangabad 431136',
+    },
+  };
+  const mockRes = {
+    writeHead(code) {
+      status = code;
+    },
+    end(chunk) {
+      body += chunk ? chunk.toString() : '';
+    },
+  };
+
+  await vercelHandler(mockReq, mockRes);
+  assert.equal(status, 200);
+  const parsed = JSON.parse(body);
+  assert.equal(parsed.extractionSource, 'browser-ocr-nlp');
+  assert.equal(parsed.extracted.companyName, 'SIGMA PRECISION TOOLS PVT LTD');
+  assert.equal(parsed.extracted.contactPerson, 'Neha Deshpande');
+  assert.equal(parsed.extracted.stateRegion, 'Maharashtra');
+});

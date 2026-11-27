@@ -167,18 +167,18 @@ async function readFileAsDataUrl(file) {
     reader.readAsDataURL(file);
   });
 
-  // Preserve SVG as-is; optimize large camera photos for crisp OCR & fast upload
+  // Preserve SVG as-is; optimize large camera photos for crisp OCR & Vercel payload limits
   if (file.type === 'image/svg+xml') return rawUrl;
   try {
     const img = await loadImageElement(rawUrl);
-    const maxDim = 1800;
+    const maxDim = 1400;
     const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(img.width * scale);
     canvas.height = Math.round(img.height * scale);
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.92);
+    return canvas.toDataURL('image/jpeg', 0.86);
   } catch {
     return rawUrl;
   }
@@ -290,6 +290,65 @@ function showFormErrors(errors = {}) {
   }
 }
 
+let tesseractLoaderPromise = null;
+function loadTesseractJs() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (!tesseractLoaderPromise) {
+    tesseractLoaderPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      script.onload = () => resolve(window.Tesseract);
+      script.onerror = () =>
+        reject(new Error('Failed to load browser OCR engine. Check internet or configure GEMINI_API_KEY.'));
+      document.head.appendChild(script);
+    });
+  }
+  return tesseractLoaderPromise;
+}
+
+async function runBrowserTesseractOnImage(Tesseract, dataUrl) {
+  if (!dataUrl) return { text: '', lines: [] };
+  const res = await Tesseract.recognize(dataUrl, 'eng');
+  const lines = (res?.data?.lines || [])
+    .map((l) => ({
+      text: (l.text || '').trim(),
+      x: l.bbox?.x0 || 0,
+      y: l.bbox?.y0 || 0,
+      width: (l.bbox?.x1 || 0) - (l.bbox?.x0 || 0),
+      height: (l.bbox?.y1 || 0) - (l.bbox?.y0 || 0),
+    }))
+    .filter((l) => l.text.length > 0);
+  return {
+    text: res?.data?.text || '',
+    lines,
+  };
+}
+
+async function extractCardWithFallback(payload, onStatus) {
+  let result = await api('/api/extract-card', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  if (result.needsClientOcr) {
+    if (onStatus) onStatus('Reading card text in browser OCR...');
+    const Tesseract = await loadTesseractJs();
+    const frontOcr = await runBrowserTesseractOnImage(Tesseract, payload.frontCardImage);
+    const backOcr = await runBrowserTesseractOnImage(Tesseract, payload.backCardImage);
+    result = await api('/api/extract-card', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...payload,
+        clientOcrText: frontOcr.text,
+        clientOcrBackText: backOcr.text,
+        clientOcrLines: frontOcr.lines,
+        clientOcrBackLines: backOcr.lines,
+      }),
+    });
+  }
+  return result;
+}
+
 async function runCardExtraction() {
   if (!state.frontCardImage && !state.backCardImage) {
     showToast('Capture or upload a business card image first.');
@@ -318,15 +377,17 @@ async function runCardExtraction() {
   };
 
   try {
-    const result = await api('/api/extract-card', {
-      method: 'POST',
-      body: JSON.stringify({
+    const result = await extractCardWithFallback(
+      {
         frontCardImage: state.frontCardImage,
         backCardImage: state.backCardImage,
         existingFields,
         verifiedFields,
-      }),
-    });
+      },
+      (msg) => {
+        $('#extractStatusText').textContent = msg;
+      }
+    );
 
     state.aiExtractedUsed = true;
     state.lastExtractedRaw = result.rawExtracted || result.extracted || {};
@@ -934,12 +995,9 @@ async function openLeadDrawer(enquiryId) {
         drawerCheckBtn.disabled = true;
         drawerCheckBtn.textContent = 'Checking Card...';
         try {
-          const res = await api('/api/extract-card', {
-            method: 'POST',
-            body: JSON.stringify({
-              frontCardImage: enquiry.frontCardImage || '',
-              backCardImage: enquiry.backCardImage || '',
-            }),
+          const res = await extractCardWithFallback({
+            frontCardImage: enquiry.frontCardImage || '',
+            backCardImage: enquiry.backCardImage || '',
           });
           const cardMap = res.rawExtracted || res.extracted || {};
           const currentMap = {
