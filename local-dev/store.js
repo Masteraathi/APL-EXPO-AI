@@ -64,11 +64,35 @@ class ExpoStore {
         salesTeam: JSON.parse(JSON.stringify(DEFAULT_SALES_TEAM)),
         expos: [...DEFAULT_EXPOS],
         enquiries: JSON.parse(JSON.stringify(SEED_ENQUIRIES)),
+        settings: {
+          sheetsWebhookUrl: '',
+        },
       };
       this.writeState(initial);
     } else {
       this.syncCsvFiles(this.readState());
     }
+  }
+
+  getSheetsWebhookUrl() {
+    if (process.env.GOOGLE_SHEETS_WEBHOOK_URL) {
+      return process.env.GOOGLE_SHEETS_WEBHOOK_URL.trim();
+    }
+    const state = this.readState();
+    return String(state.settings?.sheetsWebhookUrl || '').trim();
+  }
+
+  setSheetsWebhookUrl(url) {
+    const clean = String(url || '').trim();
+    if (clean && !/^https:\/\/script\.google\.com\//i.test(clean) && !/^https?:\/\//i.test(clean)) {
+      const err = new Error('Please enter a valid https:// Google Apps Script Web App URL.');
+      err.statusCode = 400;
+      throw err;
+    }
+    const state = this.readState();
+    state.settings = { ...(state.settings || {}), sheetsWebhookUrl: clean };
+    this.writeState(state);
+    return clean;
   }
 
   readState() {
@@ -126,6 +150,9 @@ class ExpoStore {
       'Assigned Salesperson',
       'Enquiry Status',
       'Follow-up Remarks',
+      'Card Verified',
+      'Created At',
+      'Updated At',
     ];
     const enquiryRows = state.enquiries.map((e) => ({
       'Enquiry ID': e.enquiryId,
@@ -148,6 +175,9 @@ class ExpoStore {
       'Assigned Salesperson': e.assignedSalesperson || '',
       'Enquiry Status': e.enquiryStatus,
       'Follow-up Remarks': e.followUpRemarks || '',
+      'Card Verified': e.cardVerified ? 'TRUE' : 'FALSE',
+      'Created At': e.createdAt || '',
+      'Updated At': e.updatedAt || '',
     }));
     fs.writeFileSync(
       path.join(this.dataDir, 'EXPO_ENQUIRIES.csv'),
@@ -369,14 +399,6 @@ class ExpoStore {
     if (payload.email !== undefined && String(payload.email).trim()) {
       if (!isValidEmail(payload.email)) {
         errors.email = 'Please enter a valid email address.';
-      }
-    }
-    if (isCreate && payload.aiExtractedUsed) {
-      if (!payload.mobileVerified) {
-        errors.mobileVerified = 'Please verify the AI-extracted mobile number before saving.';
-      }
-      if (String(payload.email || '').trim() && !payload.emailVerified) {
-        errors.emailVerified = 'Please verify the AI-extracted email address before saving.';
       }
     }
     if (isCreate || payload.productCategories !== undefined) {

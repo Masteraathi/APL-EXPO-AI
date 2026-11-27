@@ -11,6 +11,13 @@ const {
 const { ExpoStore } = require('./store');
 const { extractBusinessCard } = require('./geminiExtractor');
 const { buildDashboardReport } = require('./dashboardService');
+const {
+  ENQUIRY_SHEET_COLUMNS,
+  syncEnquiryToSheet,
+  deleteEnquiryFromSheet,
+  syncAllToSheet,
+  testSheetConnection,
+} = require('./googleSheetsSync');
 
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 const DEFAULT_DATA_DIR = path.resolve(__dirname, '..', 'data');
@@ -135,7 +142,7 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-function createRequestHandler({ dataDir = DEFAULT_DATA_DIR } = {}) {
+function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) {
   const store = new ExpoStore(dataDir);
 
   const handler = async (req, res) => {
@@ -155,6 +162,7 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR } = {}) {
           service: 'APL EXPO AI Web Application',
           geminiConfigured: Boolean(GEMINI_API_KEY),
           geminiModel: GEMINI_MODEL,
+          googleSheetsConfigured: Boolean(store.getSheetsWebhookUrl()),
           platform: process.platform,
           vercel: Boolean(process.env.VERCEL),
           storageMode: process.env.VERCEL ? 'vercel-tmp-json-csv' : 'local-json-csv',
@@ -198,7 +206,14 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR } = {}) {
       if (method === 'POST' && pathname === '/api/enquiries') {
         const body = await readJsonBody(req);
         const created = store.createEnquiry(body);
-        sendJson(res, 201, { enquiry: created });
+        const state = store.readState();
+        const googleSheetsSync = await syncEnquiryToSheet(
+          created,
+          state.categories,
+          store.getSheetsWebhookUrl(),
+          sheetsFetch
+        );
+        sendJson(res, 201, { enquiry: created, googleSheetsSync });
         return;
       }
 
@@ -222,14 +237,59 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR } = {}) {
         if (method === 'PATCH') {
           const body = await readJsonBody(req);
           const updated = store.updateEnquiry(enquiryId, body);
-          sendJson(res, 200, { enquiry: updated });
+          const state = store.readState();
+          const googleSheetsSync = await syncEnquiryToSheet(
+            updated,
+            state.categories,
+            store.getSheetsWebhookUrl(),
+            sheetsFetch
+          );
+          sendJson(res, 200, { enquiry: updated, googleSheetsSync });
           return;
         }
         if (method === 'DELETE') {
           const removed = store.deleteEnquiry(enquiryId);
-          sendJson(res, 200, { ok: true, deletedId: removed.enquiryId });
+          const googleSheetsSync = await deleteEnquiryFromSheet(
+            removed.enquiryId,
+            store.getSheetsWebhookUrl(),
+            sheetsFetch
+          );
+          sendJson(res, 200, { ok: true, deletedId: removed.enquiryId, googleSheetsSync });
           return;
         }
+      }
+
+      if (method === 'GET' && pathname === '/api/sheets/status') {
+        const url = store.getSheetsWebhookUrl();
+        sendJson(res, 200, {
+          configured: Boolean(url),
+          fromEnv: Boolean(process.env.GOOGLE_SHEETS_WEBHOOK_URL),
+          webhookUrl: url,
+          columns: ENQUIRY_SHEET_COLUMNS,
+        });
+        return;
+      }
+
+      if (method === 'POST' && pathname === '/api/sheets/config') {
+        const body = await readJsonBody(req);
+        const savedUrl = store.setSheetsWebhookUrl(body.webhookUrl || '');
+        let connectionTest = null;
+        if (savedUrl && body.test !== false) {
+          connectionTest = await testSheetConnection(savedUrl, sheetsFetch);
+        }
+        sendJson(res, 200, {
+          configured: Boolean(savedUrl),
+          webhookUrl: savedUrl,
+          connectionTest,
+        });
+        return;
+      }
+
+      if (method === 'POST' && pathname === '/api/sheets/sync-all') {
+        const state = store.readState();
+        const result = await syncAllToSheet(state, store.getSheetsWebhookUrl(), sheetsFetch);
+        sendJson(res, result.synced ? 200 : 400, result);
+        return;
       }
 
       if (method === 'GET' && pathname === '/api/dashboard') {

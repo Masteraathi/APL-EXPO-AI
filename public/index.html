@@ -230,29 +230,15 @@
                   </div>
 
                   <div class="field">
-                    <div class="label-row">
-                      <label for="mobile">Mobile Number <span class="req">*</span></label>
-                      <label class="verify-check">
-                        <input type="checkbox" id="mobileVerified" />
-                        <span>Verified</span>
-                      </label>
-                    </div>
+                    <label for="mobile">Mobile Number <span class="req">*</span></label>
                     <input id="mobile" name="mobile" type="tel" placeholder="+91 98XXX XXXXX" required />
                     <span class="field-error" data-err="mobile"></span>
-                    <span class="field-error" data-err="mobileVerified"></span>
                   </div>
 
                   <div class="field">
-                    <div class="label-row">
-                      <label for="email">Email Address</label>
-                      <label class="verify-check">
-                        <input type="checkbox" id="emailVerified" />
-                        <span>Verified</span>
-                      </label>
-                    </div>
+                    <label for="email">Email Address</label>
                     <input id="email" name="email" type="email" placeholder="name@company.com" />
                     <span class="field-error" data-err="email"></span>
-                    <span class="field-error" data-err="emailVerified"></span>
                   </div>
 
                   <div class="field span-2">
@@ -559,6 +545,24 @@
                 <button type="submit" class="btn btn-primary btn-sm">Add Rep</button>
               </form>
               <div id="masterSalesTeamList" class="master-list"></div>
+            </div>
+
+            <div class="card span-2">
+              <div class="card-head">
+                <div>
+                  <h2>Google Sheets Live Sync</h2>
+                  <p class="card-sub">Save enquiries directly into your Google Sheet tabs (<code>EXPO_ENQUIRIES</code> &amp; <code>ENQUIRY_CATEGORIES</code>) based on the form fields.</p>
+                </div>
+                <span class="badge badge-teal" id="sheetsSyncStatusBadge">Not Connected</span>
+              </div>
+              <form id="sheetsConfigForm" class="inline-add-form">
+                <input type="text" id="sheetsWebhookUrlInput" placeholder="https://script.google.com/macros/s/.../exec (Apps Script Web App URL)" />
+                <button type="submit" class="btn btn-primary btn-sm">Save &amp; Test Sheet</button>
+                <button type="button" class="btn btn-outline btn-sm" id="syncAllSheetsBtn">Sync All Now</button>
+              </form>
+              <div class="small muted mt-1" id="sheetsSyncHint">
+                Open your Google Sheet &rarr; <strong>Extensions &rarr; Apps Script</strong> &rarr; paste <code>apps-script/SheetSync.gs</code> &rarr; Deploy as Web App (Anyone) &rarr; paste URL above or set <code>GOOGLE_SHEETS_WEBHOOK_URL</code> in Vercel/.env.
+              </div>
             </div>
 
             <div class="card span-2">

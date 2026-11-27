@@ -414,10 +414,18 @@ async function runCardExtraction() {
     website: $('#website').value,
   };
 
-  const verifiedFields = {
-    mobile: $('#mobileVerified').checked,
-    email: $('#emailVerified').checked,
-  };
+  const verifiedFields = $('#cardVerified').checked
+    ? {
+        companyName: true,
+        contactPerson: true,
+        designation: true,
+        mobile: true,
+        email: true,
+        location: true,
+        stateRegion: true,
+        website: true,
+      }
+    : {};
 
   try {
     const result = await extractCardWithFallback(
@@ -453,10 +461,6 @@ async function runCardExtraction() {
         if (ex[id]) input.classList.add('ai-filled');
       }
     }
-
-    // Require fresh confirmation for mobile/email unless already verified
-    if (!verifiedFields.mobile) $('#mobileVerified').checked = false;
-    if (!verifiedFields.email) $('#emailVerified').checked = false;
 
     // Auto-suggest matching product categories if user hasn't picked any yet
     if (state.selectedCategories.size === 0 && Array.isArray(result.suggestedCategories)) {
@@ -591,8 +595,6 @@ async function handleSaveEnquiry(e) {
     location: $('#location').value.trim(),
     stateRegion: $('#stateRegion').value.trim(),
     website: $('#website').value.trim(),
-    mobileVerified: $('#mobileVerified').checked,
-    emailVerified: $('#emailVerified').checked,
     cardVerified: $('#cardVerified').checked,
     aiExtractedUsed: state.aiExtractedUsed,
     productCategories: Array.from(state.selectedCategories),
@@ -608,22 +610,31 @@ async function handleSaveEnquiry(e) {
   btn.textContent = 'Saving...';
 
   try {
-    const { enquiry } = await api('/api/enquiries', {
+    const { enquiry, googleSheetsSync } = await api('/api/enquiries', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
 
     const elapsed = formatTimer(state.timerSeconds);
     state.lastSavedEnquiryId = enquiry.enquiryId;
+    const sheetNote = googleSheetsSync?.synced
+      ? ' · Synced to Google Sheet'
+      : googleSheetsSync?.configured
+      ? ` · Sheet Sync Warning: ${googleSheetsSync.message}`
+      : '';
     $('#savedIdLabel').textContent = `Saved ${enquiry.enquiryId} — ${enquiry.companyName}`;
     $('#savedSummaryText').textContent = `Status: ${enquiry.enquiryStatus} · Priority: ${enquiry.visitPriority}${
       state.timerSeconds > 0 ? ` · Captured in ${elapsed}` : ''
-    }`;
+    }${sheetNote}`;
     $('#saveSuccessBanner').classList.remove('hidden');
 
     await refreshBootstrapAndCount();
     resetCaptureForm({ keepBanner: true });
-    showToast(`Enquiry ${enquiry.enquiryId} created`);
+    showToast(
+      googleSheetsSync?.synced
+        ? `Saved ${enquiry.enquiryId} & synced to Google Sheet`
+        : `Enquiry ${enquiry.enquiryId} saved`
+    );
   } catch (err) {
     if (err.errors) {
       showFormErrors(err.errors);
@@ -1302,8 +1313,17 @@ function renderCalendar(visits) {
 
 async function loadMastersView() {
   try {
-    const { sheets } = await api('/api/sheets-preview');
+    const [{ sheets }, sheetsStatus] = await Promise.all([
+      api('/api/sheets-preview'),
+      api('/api/sheets/status'),
+    ]);
     renderMastersLists();
+    if ($('#sheetsWebhookUrlInput')) {
+      $('#sheetsWebhookUrlInput').value = sheetsStatus.webhookUrl || '';
+      $('#sheetsSyncStatusBadge').textContent = sheetsStatus.configured
+        ? 'Connected'
+        : 'Local Only (Not Linked)';
+    }
     $('#sheetsSchemaCards').innerHTML = [
       ['EXPO_ENQUIRIES', sheets.EXPO_ENQUIRIES.count, 'Main enquiry records, images & follow-ups'],
       ['PRODUCT_CATEGORIES', sheets.PRODUCT_CATEGORIES.count, 'Controlled APL category master'],
@@ -1666,6 +1686,42 @@ function wireEvents() {
       await refreshBootstrapAndCount();
       await loadMastersView();
       showToast('Salesperson added');
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  $('#sheetsConfigForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const resp = await api('/api/sheets/config', {
+        method: 'POST',
+        body: JSON.stringify({
+          webhookUrl: $('#sheetsWebhookUrlInput').value.trim(),
+          test: true,
+        }),
+      });
+      if (resp.connectionTest?.synced) {
+        $('#sheetsSyncStatusBadge').textContent = 'Connected';
+        $('#sheetsSyncHint').textContent = resp.connectionTest.message;
+        showToast(resp.connectionTest.message);
+      } else if (!resp.configured) {
+        $('#sheetsSyncStatusBadge').textContent = 'Local Only';
+        showToast('Cleared Google Sheets URL');
+      } else {
+        $('#sheetsSyncStatusBadge').textContent = 'Check URL';
+        $('#sheetsSyncHint').textContent = resp.connectionTest?.message || 'Could not reach sheet';
+        showToast(resp.connectionTest?.message || 'Connection test failed');
+      }
+    } catch (err) {
+      showToast(err.message);
+    }
+  });
+
+  $('#syncAllSheetsBtn').addEventListener('click', async () => {
+    try {
+      const res = await api('/api/sheets/sync-all', { method: 'POST', body: '{}' });
+      showToast(res.message || 'Synced all records to Google Sheet');
     } catch (err) {
       showToast(err.message);
     }

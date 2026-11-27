@@ -47,10 +47,10 @@ function invokeHandler(handler, method, url, bodyObj) {
   });
 }
 
-function withTempApp(fn) {
+function withTempApp(fn, { sheetsFetch } = {}) {
   return async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apl-expo-ai-test-'));
-    const { handler, store } = createRequestHandler({ dataDir: tempDir });
+    const { handler, store } = createAppServerForTest(tempDir, sheetsFetch);
     const request = (method, url, body) => invokeHandler(handler, method, url, body);
     try {
       await fn({ request, tempDir, store });
@@ -58,6 +58,10 @@ function withTempApp(fn) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
   };
+}
+
+function createAppServerForTest(dataDir, sheetsFetch) {
+  return createRequestHandler({ dataDir, sheetsFetch });
 }
 
 test('serves web UI and reports health without leaking API keys', withTempApp(async ({ request, tempDir }) => {
@@ -178,23 +182,21 @@ test('non-destructive AI extraction preserves verified fields and surfaces confl
   assert.equal(payload.conflicts.length, 1);
 }));
 
-test('validates verified contact info, creates enquiry with unique ID, and syncs category links', withTempApp(async ({ request }) => {
+test('validates contact format, creates enquiry with unique ID, and syncs category links', withTempApp(async ({ request }) => {
   const badRes = await request('POST', '/api/enquiries', {
-    expoName: 'IMTEX 2026 - Bengaluru',
-    enquiryDate: '2026-11-27',
+    enquiryDate: '2027-01-22',
     companyName: 'Test Metals Ltd',
     contactPerson: 'Asha Iyer',
-    mobile: '+91 98765 43210',
-    email: 'asha@testmetals.in',
+    mobile: '123',
+    email: 'not-an-email',
     aiExtractedUsed: true,
-    mobileVerified: false,
-    emailVerified: true,
     productCategories: ['Industrial Lubricants'],
     visitPriority: 'HIGH',
   });
   assert.equal(badRes.status, 400);
   const badBody = badRes.json();
-  assert.ok(badBody.errors.mobileVerified);
+  assert.ok(badBody.errors.mobile);
+  assert.ok(badBody.errors.email);
 
   const createRes = await request('POST', '/api/enquiries', {
     enquiryDate: '2027-01-22',
@@ -205,8 +207,6 @@ test('validates verified contact info, creates enquiry with unique ID, and syncs
     email: 'asha@testmetals.in',
     location: 'MIDC Bhosari, Pune, Maharashtra',
     aiExtractedUsed: true,
-    mobileVerified: true,
-    emailVerified: true,
     productCategories: ['Industrial Lubricants', 'Rust Preventives'],
     enquiryRemarks: 'Needs 1,000L hydraulic oil trial.',
     visitPriority: 'HIGH',
@@ -233,8 +233,25 @@ test('validates verified contact info, creates enquiry with unique ID, and syncs
   assert.match(csvRes.text, new RegExp(`${enquiry.enquiryId},CAT-05,Rust Preventives`));
 }));
 
-test('updates follow-up history, computes dashboard metrics, and manages masters', withTempApp(async ({ request }) => {
-  const patchRes = await request('PATCH', '/api/enquiries/APL-2027-0004', {
+test('starts with zero example queries and updates follow-up history, dashboard metrics, and masters', withTempApp(async ({ request }) => {
+  const initialList = await request('GET', '/api/enquiries');
+  assert.equal(initialList.status, 200);
+  assert.equal(initialList.json().enquiries.length, 0);
+
+  const createdRes = await request('POST', '/api/enquiries', {
+    enquiryDate: '2027-01-22',
+    companyName: 'Vardhman Precision Fasteners Ltd.',
+    contactPerson: 'Arvind Chawla',
+    mobile: '+91 98140 77321',
+    email: 'arvind@vardhmanfasteners.in',
+    location: 'Focal Point, Ludhiana, Punjab 141010',
+    productCategories: ['Metalworking Fluids', 'Rust Preventives'],
+    visitPriority: 'HIGH',
+  });
+  assert.equal(createdRes.status, 201);
+  const createdId = createdRes.json().enquiry.enquiryId;
+
+  const patchRes = await request('PATCH', `/api/enquiries/${createdId}`, {
     assignedSalespersonId: 'SP-04',
     enquiryStatus: 'Visit Planned',
     tentativeVisitDate: '2027-02-08',
@@ -248,7 +265,7 @@ test('updates follow-up history, computes dashboard metrics, and manages masters
   const dashRes = await request('GET', '/api/dashboard');
   assert.equal(dashRes.status, 200);
   const dash = dashRes.json();
-  assert.equal(dash.cards.totalEnquiries, 7);
+  assert.equal(dash.cards.totalEnquiries, 1);
   assert.equal(dash.cards.pendingAssignment, 0);
   assert.ok(dash.byCategory.length > 0);
   assert.ok(dash.byRegion.length > 0);
@@ -262,28 +279,84 @@ test('updates follow-up history, computes dashboard metrics, and manages masters
   assert.equal(category.active, true);
 }));
 
-test('persists cardVerified flag and removes enquiries from JSON and CSV link tables', withTempApp(async ({ request }) => {
-  const patchRes = await request('PATCH', '/api/enquiries/APL-2027-0001', {
-    cardVerified: true,
-    companyName: 'Bharat Precision Gears Pvt. Ltd.',
-  });
-  assert.equal(patchRes.status, 200);
-  assert.equal(patchRes.json().enquiry.cardVerified, true);
+test('persists cardVerified flag, syncs enquiries by field columns to Google Sheet, and removes enquiries', async () => {
+  const sheetCalls = [];
+  const mockFetch = async (url, opts) => {
+    sheetCalls.push({ url, body: JSON.parse(opts.body) });
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({ ok: true, message: 'Synced to sheet' });
+      },
+    };
+  };
 
-  const delRes = await request('DELETE', '/api/enquiries/APL-2027-0001');
-  assert.equal(delRes.status, 200);
-  assert.equal(delRes.json().deletedId, 'APL-2027-0001');
+  await withTempApp(async ({ request }) => {
+    const cfgRes = await request('POST', '/api/sheets/config', {
+      webhookUrl: 'https://script.google.com/macros/s/demo-deployment/exec',
+      test: true,
+    });
+    assert.equal(cfgRes.status, 200);
+    assert.equal(cfgRes.json().connectionTest.synced, true);
+    assert.equal(sheetCalls[0].body.action, 'ping');
 
-  const getDeleted = await request('GET', '/api/enquiries/APL-2027-0001');
-  assert.equal(getDeleted.status, 404);
+    const createRes = await request('POST', '/api/enquiries', {
+      enquiryDate: '2027-01-23',
+      companyName: 'Bharat Precision Gears Pvt. Ltd.',
+      contactPerson: 'Suresh Deshmukh',
+      designation: 'VP Manufacturing',
+      mobile: '+91 98231 55420',
+      email: 's.deshmukh@bharatgears.in',
+      location: 'MIDC Chakan, Pune, Maharashtra 410501',
+      website: 'www.bharatgears.in',
+      cardVerified: true,
+      productCategories: ['Metalworking Fluids', 'Heat Treatment Oils'],
+      enquiryRemarks: 'Needs semi-synthetic coolant trial.',
+      visitPriority: 'HIGH',
+      tentativeVisitDate: '2027-02-05',
+      assignedSalespersonId: 'SP-01',
+    });
+    assert.equal(createRes.status, 201);
+    const { enquiry, googleSheetsSync } = createRes.json();
+    assert.equal(googleSheetsSync.synced, true);
 
-  const csvRes = await request('GET', '/api/export/csv?table=ENQUIRY_CATEGORIES');
-  assert.equal(csvRes.status, 200);
-  assert.equal(csvRes.text.includes('APL-2027-0001'), false);
+    const upsertCall = sheetCalls.find((c) => c.body.action === 'upsertEnquiry');
+    assert.ok(upsertCall);
+    assert.equal(upsertCall.body.row['Enquiry ID'], enquiry.enquiryId);
+    assert.equal(upsertCall.body.row['Expo Name'], 'IMTEX-2027');
+    assert.equal(upsertCall.body.row['Company Name'], 'Bharat Precision Gears Pvt. Ltd.');
+    assert.equal(upsertCall.body.row['Contact Person'], 'Suresh Deshmukh');
+    assert.equal(upsertCall.body.row['Mobile'], '+91 98231 55420');
+    assert.equal(upsertCall.body.row['Product Categories'], 'Metalworking Fluids; Heat Treatment Oils');
+    assert.equal(upsertCall.body.row['Assigned Salesperson'], 'Rajesh Kulkarni');
+    assert.equal(upsertCall.body.row['Card Verified'], 'TRUE');
+    assert.equal(upsertCall.body.categoryLinks.length, 2);
 
-  const delMissing = await request('DELETE', '/api/enquiries/APL-2027-9999');
-  assert.equal(delMissing.status, 404);
-}));
+    const patchRes = await request('PATCH', `/api/enquiries/${enquiry.enquiryId}`, {
+      enquiryStatus: 'Completed',
+      newFollowUpNote: 'PO closed',
+    });
+    assert.equal(patchRes.status, 200);
+    assert.equal(patchRes.json().googleSheetsSync.synced, true);
+
+    const delRes = await request('DELETE', `/api/enquiries/${enquiry.enquiryId}`);
+    assert.equal(delRes.status, 200);
+    assert.equal(delRes.json().deletedId, enquiry.enquiryId);
+    assert.equal(delRes.json().googleSheetsSync.synced, true);
+    assert.ok(sheetCalls.some((c) => c.body.action === 'deleteEnquiry'));
+
+    const getDeleted = await request('GET', `/api/enquiries/${enquiry.enquiryId}`);
+    assert.equal(getDeleted.status, 404);
+
+    const csvRes = await request('GET', '/api/export/csv?table=ENQUIRY_CATEGORIES');
+    assert.equal(csvRes.status, 200);
+    assert.equal(csvRes.text.includes(enquiry.enquiryId), false);
+
+    const delMissing = await request('DELETE', '/api/enquiries/APL-2027-9999');
+    assert.equal(delMissing.status, 404);
+  }, { sheetsFetch: mockFetch })();
+});
 
 test('runs real raster PNG OCR through Windows OCR + Card NLP Analyzer', withTempApp(async ({ request }) => {
   const { execFileSync } = require('node:child_process');
