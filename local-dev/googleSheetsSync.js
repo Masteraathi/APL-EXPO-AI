@@ -18,13 +18,22 @@ const ENQUIRY_SHEET_COLUMNS = [
   'Enquiry Remarks',
   'Visit Priority',
   'Tentative Visit Date',
+  'Assigned Salesperson ID',
   'Assigned Salesperson',
   'Enquiry Status',
   'Follow-up Remarks',
+  'Follow-up History',
   'Card Verified',
   'Created At',
   'Updated At',
 ];
+
+function formatHistoryForSheet(history) {
+  if (!Array.isArray(history) || history.length === 0) return '';
+  return history
+    .map((h) => `[${h.timestamp || ''}] (${h.actor || ''} · ${h.status || ''}) ${h.note || ''}`.trim())
+    .join('\n');
+}
 
 function mapEnquiryToSheetRow(enquiry) {
   return {
@@ -47,9 +56,11 @@ function mapEnquiryToSheetRow(enquiry) {
     'Enquiry Remarks': enquiry.enquiryRemarks || '',
     'Visit Priority': enquiry.visitPriority || '',
     'Tentative Visit Date': enquiry.tentativeVisitDate || '',
+    'Assigned Salesperson ID': enquiry.assignedSalespersonId || '',
     'Assigned Salesperson': enquiry.assignedSalesperson || '',
     'Enquiry Status': enquiry.enquiryStatus || '',
     'Follow-up Remarks': enquiry.followUpRemarks || '',
+    'Follow-up History': formatHistoryForSheet(enquiry.followUpHistory),
     'Card Verified': enquiry.cardVerified ? 'TRUE' : 'FALSE',
     'Created At': enquiry.createdAt || '',
     'Updated At': enquiry.updatedAt || '',

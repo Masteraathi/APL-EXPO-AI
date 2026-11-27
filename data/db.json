@@ -94,8 +94,47 @@
   "expos": [
     "IMTEX-2027"
   ],
-  "enquiries": [],
+  "enquiries": [
+    {
+      "enquiryId": "APL-2026-0001",
+      "expoName": "IMTEX-2027",
+      "enquiryDate": "2026-11-27",
+      "frontCardImage": "",
+      "backCardImage": "",
+      "companyName": "ARABIA",
+      "contactPerson": "Aathithya Sivakumar",
+      "designation": "sdsd",
+      "mobile": "+91 98339 30223",
+      "email": "aathithyasiva1904@gmail.com",
+      "location": "",
+      "stateRegion": "Other / Unspecified",
+      "website": "",
+      "mobileVerified": false,
+      "emailVerified": false,
+      "cardVerified": true,
+      "productCategories": [
+        "Metalworking Fluids"
+      ],
+      "enquiryRemarks": "",
+      "visitPriority": "MEDIUM",
+      "tentativeVisitDate": "",
+      "assignedSalespersonId": "",
+      "assignedSalesperson": "",
+      "enquiryStatus": "New",
+      "followUpRemarks": "",
+      "followUpHistory": [
+        {
+          "timestamp": "2026-11-27T10:08:58.246Z",
+          "actor": "Expo Booth Rep",
+          "status": "New",
+          "note": "Enquiry captured at IMTEX-2027."
+        }
+      ],
+      "createdAt": "2026-11-27T10:08:58.246Z",
+      "updatedAt": "2026-11-27T10:08:58.246Z"
+    }
+  ],
   "settings": {
-    "sheetsWebhookUrl": ""
+    "sheetsWebhookUrl": "https://script.google.com/macros/s/AKfycbx5FayB5RFOenY6H221DUIMwQUI9ZD3-GDTlyM3wsxquRMg3FLfEBQt2uaXhE9tCdWtSQ/exec"
   }
 }

@@ -1,9 +1,10 @@
 /**
  * APL EXPO AI — Google Sheets Sync & Workbook Setup (Google Apps Script)
  *
- * Paste this script into Extensions -> Apps Script inside your Google Sheet,
- * run "APL EXPO AI -> Setup Workbook" once, and Deploy -> New deployment -> Web app
- * (Execute as: Me, Who has access: Anyone).
+ * Stores ALL enquiry fields (including Contact Person / Name, Company Name,
+ * Designation, Mobile, Email, Location, State/Region, Website, Product Categories,
+ * Remarks, Priority, Visit Date, Salesperson, Status, Follow-up Remarks/History,
+ * Card Verification, Front/Back Card Images, and Timestamps).
  */
 
 var ENQUIRY_HEADERS = [
@@ -24,9 +25,11 @@ var ENQUIRY_HEADERS = [
   'Enquiry Remarks',
   'Visit Priority',
   'Tentative Visit Date',
+  'Assigned Salesperson ID',
   'Assigned Salesperson',
   'Enquiry Status',
   'Follow-up Remarks',
+  'Follow-up History',
   'Card Verified',
   'Created At',
   'Updated At',
@@ -47,20 +50,39 @@ var LINK_HEADERS = [
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('APL EXPO AI')
-    .addItem('Setup Workbook Tabs & Headers', 'setupWorkbook')
+    .addItem('Setup / Repair Workbook Headers', 'setupWorkbook')
     .addToUi();
 }
 
-function getOrCreateSheet(ss, name, headers) {
+function getOrCreateSheet(ss, name, expectedHeaders) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
   }
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(headers);
-    var headerRange = sheet.getRange(1, 1, 1, headers.length);
+    sheet.appendRow(expectedHeaders);
+    var headerRange = sheet.getRange(1, 1, 1, expectedHeaders.length);
     headerRange.setBackground('#0F2942').setFontColor('#FFFFFF').setFontWeight('bold');
     sheet.setFrozenRows(1);
+    return sheet;
+  }
+
+  // Ensure any missing columns are automatically added to Row 1 on existing sheets
+  var lastCol = Math.max(1, sheet.getLastColumn());
+  var existingHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+    return String(h || '').trim();
+  });
+  var missing = expectedHeaders.filter(function (h) {
+    return existingHeaders.indexOf(h) === -1;
+  });
+  if (missing.length > 0) {
+    var startCol = existingHeaders.length + 1;
+    sheet.getRange(1, startCol, 1, missing.length).setValues([missing]);
+    sheet
+      .getRange(1, startCol, 1, missing.length)
+      .setBackground('#0F2942')
+      .setFontColor('#FFFFFF')
+      .setFontWeight('bold');
   }
   return sheet;
 }
@@ -71,7 +93,7 @@ function setupWorkbook() {
   getOrCreateSheet(ss, 'PRODUCT_CATEGORIES', CATEGORY_HEADERS);
   getOrCreateSheet(ss, 'SALES_TEAM', SALES_HEADERS);
   getOrCreateSheet(ss, 'ENQUIRY_CATEGORIES', LINK_HEADERS);
-  // Pre-authorize Drive folder access during setup
+
   try {
     var folders = DriveApp.getFoldersByName('APL_EXPO_AI_CARDS');
     if (!folders.hasNext()) {
@@ -111,7 +133,81 @@ function saveCardImageToDrive(dataUrl, filePrefix) {
   }
 }
 
-function upsertRowByKey(sheet, headers, keyColName, rowObj) {
+function pickFirst(objA, objB, keys, fallback) {
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (objA && objA[k] !== undefined && objA[k] !== null && objA[k] !== '') return objA[k];
+    if (objB && objB[k] !== undefined && objB[k] !== null && objB[k] !== '') return objB[k];
+  }
+  return fallback !== undefined ? fallback : '';
+}
+
+function normalizeEnquiryRow(payload, rawRow) {
+  var r = rawRow || {};
+  var p = payload || {};
+  var cats = pickFirst(r, p, ['Product Categories', 'productCategories'], '');
+  if (Array.isArray(cats)) cats = cats.join('; ');
+
+  var history = pickFirst(r, p, ['Follow-up History', 'followUpHistory'], '');
+  if (Array.isArray(history)) {
+    history = history
+      .map(function (h) {
+        return '[' + (h.timestamp || '') + '] (' + (h.actor || '') + ' · ' + (h.status || '') + ') ' + (h.note || '');
+      })
+      .join('\n');
+  }
+
+  var contactName = pickFirst(
+    r,
+    p,
+    ['Contact Person', 'contactPerson', 'Name', 'name', 'Contact Name', 'contactName'],
+    ''
+  );
+  var companyName = pickFirst(r, p, ['Company Name', 'companyName', 'Company'], '');
+
+  var normalized = {
+    'Enquiry ID': pickFirst(r, p, ['Enquiry ID', 'enquiryId'], ''),
+    'Expo Name': pickFirst(r, p, ['Expo Name', 'expoName'], 'IMTEX-2027'),
+    'Enquiry Date': pickFirst(r, p, ['Enquiry Date', 'enquiryDate'], ''),
+    'Business Card Image': pickFirst(r, p, ['Business Card Image', 'frontCardImage'], ''),
+    'Back Card Image': pickFirst(r, p, ['Back Card Image', 'backCardImage'], ''),
+    'Company Name': companyName,
+    'Contact Person': contactName,
+    'Name': contactName,
+    'Contact Name': contactName,
+    'Designation': pickFirst(r, p, ['Designation', 'designation'], ''),
+    'Mobile': pickFirst(r, p, ['Mobile', 'mobile', 'Mobile Number', 'phone'], ''),
+    'Email': pickFirst(r, p, ['Email', 'email', 'Email Address'], ''),
+    'Location': pickFirst(r, p, ['Location', 'location', 'Address', 'Location / Address'], ''),
+    'State / Region': pickFirst(r, p, ['State / Region', 'stateRegion', 'Region'], ''),
+    'Website': pickFirst(r, p, ['Website', 'website'], ''),
+    'Product Categories': cats,
+    'Enquiry Remarks': pickFirst(r, p, ['Enquiry Remarks', 'enquiryRemarks', 'Remarks'], ''),
+    'Visit Priority': pickFirst(r, p, ['Visit Priority', 'visitPriority', 'Priority'], ''),
+    'Tentative Visit Date': pickFirst(r, p, ['Tentative Visit Date', 'tentativeVisitDate'], ''),
+    'Assigned Salesperson ID': pickFirst(r, p, ['Assigned Salesperson ID', 'assignedSalespersonId'], ''),
+    'Assigned Salesperson': pickFirst(r, p, ['Assigned Salesperson', 'assignedSalesperson'], ''),
+    'Enquiry Status': pickFirst(r, p, ['Enquiry Status', 'enquiryStatus', 'Status'], ''),
+    'Follow-up Remarks': pickFirst(r, p, ['Follow-up Remarks', 'followUpRemarks'], ''),
+    'Follow-up History': history,
+    'Card Verified': pickFirst(r, p, ['Card Verified', 'cardVerified'], 'FALSE'),
+    'Created At': pickFirst(r, p, ['Created At', 'createdAt'], ''),
+    'Updated At': pickFirst(r, p, ['Updated At', 'updatedAt'], ''),
+  };
+  return normalized;
+}
+
+function getSheetHeaders(sheet, fallbackHeaders) {
+  var lastCol = Math.max(1, sheet.getLastColumn());
+  if (sheet.getLastRow() === 0) return fallbackHeaders;
+  var actual = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+    return String(h || '').trim();
+  });
+  return actual.length ? actual : fallbackHeaders;
+}
+
+function upsertRowByKey(sheet, fallbackHeaders, keyColName, rowObj) {
+  var headers = getSheetHeaders(sheet, fallbackHeaders);
   var keyIdx = headers.indexOf(keyColName);
   var keyVal = String(rowObj[keyColName] || '');
   var values = headers.map(function (h) {
@@ -133,9 +229,10 @@ function upsertRowByKey(sheet, headers, keyColName, rowObj) {
 }
 
 function replaceCategoryLinks(linkSheet, enquiryId, links) {
+  var headers = getSheetHeaders(linkSheet, LINK_HEADERS);
+  var enqCol = headers.indexOf('Enquiry ID') + 1;
   var lastRow = linkSheet.getLastRow();
-  if (lastRow > 1) {
-    var enqCol = LINK_HEADERS.indexOf('Enquiry ID') + 1;
+  if (lastRow > 1 && enqCol > 0) {
     var vals = linkSheet.getRange(2, enqCol, lastRow - 1, 1).getValues();
     for (var r = vals.length - 1; r >= 0; r--) {
       if (String(vals[r][0]) === String(enquiryId)) {
@@ -145,21 +242,23 @@ function replaceCategoryLinks(linkSheet, enquiryId, links) {
   }
   if (links && links.length) {
     var rows = links.map(function (lnk) {
-      return LINK_HEADERS.map(function (h) {
+      return headers.map(function (h) {
         return lnk[h] !== undefined ? lnk[h] : '';
       });
     });
     linkSheet
-      .getRange(linkSheet.getLastRow() + 1, 1, rows.length, LINK_HEADERS.length)
+      .getRange(linkSheet.getLastRow() + 1, 1, rows.length, headers.length)
       .setValues(rows);
   }
 }
 
 function deleteEnquiryRows(ss, enquiryId) {
   var enqSheet = getOrCreateSheet(ss, 'EXPO_ENQUIRIES', ENQUIRY_HEADERS);
+  var headers = getSheetHeaders(enqSheet, ENQUIRY_HEADERS);
+  var enqCol = headers.indexOf('Enquiry ID') + 1;
   var lastRow = enqSheet.getLastRow();
-  if (lastRow > 1) {
-    var vals = enqSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  if (lastRow > 1 && enqCol > 0) {
+    var vals = enqSheet.getRange(2, enqCol, lastRow - 1, 1).getValues();
     for (var r = vals.length - 1; r >= 0; r--) {
       if (String(vals[r][0]) === String(enquiryId)) {
         enqSheet.deleteRow(r + 2);
@@ -207,7 +306,7 @@ function doPost(e) {
     if (action === 'upsertEnquiry') {
       var enqSheet = getOrCreateSheet(ss, 'EXPO_ENQUIRIES', ENQUIRY_HEADERS);
       var linkSheet = getOrCreateSheet(ss, 'ENQUIRY_CATEGORIES', LINK_HEADERS);
-      var row = payload.row || {};
+      var row = normalizeEnquiryRow(payload, payload.row);
       var enquiryId = row['Enquiry ID'];
 
       if (payload.frontCardImage) {
@@ -221,7 +320,11 @@ function doPost(e) {
 
       var op = upsertRowByKey(enqSheet, ENQUIRY_HEADERS, 'Enquiry ID', row);
       replaceCategoryLinks(linkSheet, enquiryId, payload.categoryLinks || []);
-      return jsonOut({ ok: true, message: 'Enquiry ' + op + ' in Google Sheet', enquiryId: enquiryId });
+      return jsonOut({
+        ok: true,
+        message: 'Enquiry ' + op + ' in Google Sheet (all fields saved)',
+        enquiryId: enquiryId,
+      });
     }
 
     if (action === 'deleteEnquiry') {
@@ -239,7 +342,7 @@ function doPost(e) {
       var enquiries = payload.enquiries || [];
       for (var i = 0; i < enquiries.length; i++) {
         var item = enquiries[i];
-        var r = item.row || {};
+        var r = normalizeEnquiryRow(item, item.row);
         if (item.frontCardImage) {
           var fUrl = saveCardImageToDrive(item.frontCardImage, r['Enquiry ID'] + '-front');
           if (fUrl) r['Business Card Image'] = fUrl;

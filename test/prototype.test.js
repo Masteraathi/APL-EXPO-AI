@@ -329,7 +329,9 @@ test('persists cardVerified flag, syncs enquiries by field columns to Google She
     assert.equal(upsertCall.body.row['Contact Person'], 'Suresh Deshmukh');
     assert.equal(upsertCall.body.row['Mobile'], '+91 98231 55420');
     assert.equal(upsertCall.body.row['Product Categories'], 'Metalworking Fluids; Heat Treatment Oils');
+    assert.equal(upsertCall.body.row['Assigned Salesperson ID'], 'SP-01');
     assert.equal(upsertCall.body.row['Assigned Salesperson'], 'Rajesh Kulkarni');
+    assert.match(upsertCall.body.row['Follow-up History'], /SP-01|Rajesh Kulkarni/);
     assert.equal(upsertCall.body.row['Card Verified'], 'TRUE');
     assert.equal(upsertCall.body.categoryLinks.length, 2);
 
