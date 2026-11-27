@@ -1731,7 +1731,10 @@ function wireEvents() {
 
   $('#syncAllSheetsBtn').addEventListener('click', async () => {
     try {
-      const res = await api('/api/sheets/sync-all', { method: 'POST', body: '{}' });
+      const res = await api('/api/sheets/sync-all', {
+        method: 'POST',
+        body: JSON.stringify({ enquiries: state.enquiries || [] }),
+      });
       showToast(res.message || 'Synced all records to Google Sheet');
     } catch (err) {
       showToast(err.message);

@@ -296,8 +296,14 @@ function createRequestHandler({ dataDir = DEFAULT_DATA_DIR, sheetsFetch } = {}) 
       if (method === 'POST' && pathname === '/api/sheets/sync-all') {
         const body = await readJsonBody(req);
         const state = store.readState();
+        const effectiveState =
+          (!state.enquiries || state.enquiries.length === 0) &&
+          Array.isArray(body?.enquiries) &&
+          body.enquiries.length > 0
+            ? { ...state, enquiries: body.enquiries }
+            : state;
         const result = await syncAllToSheet(
-          state,
+          effectiveState,
           resolveWebhookUrl(req, store, body),
           sheetsFetch
         );

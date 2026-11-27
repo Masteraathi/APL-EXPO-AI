@@ -4,6 +4,8 @@ const ENQUIRY_SHEET_COLUMNS = [
   'Enquiry ID',
   'Expo Name',
   'Enquiry Date',
+  'Business Card Image',
+  'Back Card Image',
   'Company Name',
   'Contact Person',
   'Designation',
@@ -20,15 +22,26 @@ const ENQUIRY_SHEET_COLUMNS = [
   'Assigned Salesperson',
   'Enquiry Status',
   'Follow-up Remarks',
+  'Follow-up History',
+  'Card Verified',
   'Created At',
   'Updated At',
 ];
+
+function formatHistoryForSheet(history) {
+  if (!Array.isArray(history) || history.length === 0) return '';
+  return history
+    .map((h) => `[${h.timestamp || ''}] (${h.actor || ''} · ${h.status || ''}) ${h.note || ''}`.trim())
+    .join('\n');
+}
 
 function mapEnquiryToSheetRow(enquiry) {
   return {
     'Enquiry ID': enquiry.enquiryId || '',
     'Expo Name': enquiry.expoName || '',
     'Enquiry Date': enquiry.enquiryDate || '',
+    'Business Card Image': enquiry.frontCardImage ? `[Card Attached: ${enquiry.enquiryId}-front]` : '',
+    'Back Card Image': enquiry.backCardImage ? `[Card Attached: ${enquiry.enquiryId}-back]` : '',
     'Company Name': enquiry.companyName || '',
     'Contact Person': enquiry.contactPerson || '',
     'Designation': enquiry.designation || '',
@@ -47,6 +60,8 @@ function mapEnquiryToSheetRow(enquiry) {
     'Assigned Salesperson': enquiry.assignedSalesperson || '',
     'Enquiry Status': enquiry.enquiryStatus || '',
     'Follow-up Remarks': enquiry.followUpRemarks || '',
+    'Follow-up History': formatHistoryForSheet(enquiry.followUpHistory),
+    'Card Verified': enquiry.cardVerified ? 'TRUE' : 'FALSE',
     'Created At': enquiry.createdAt || '',
     'Updated At': enquiry.updatedAt || '',
   };

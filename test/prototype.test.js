@@ -331,10 +331,8 @@ test('persists cardVerified flag, syncs enquiries by field columns to Google She
     assert.equal(upsertCall.body.row['Product Categories'], 'Metalworking Fluids; Heat Treatment Oils');
     assert.equal(upsertCall.body.row['Assigned Salesperson ID'], 'SP-01');
     assert.equal(upsertCall.body.row['Assigned Salesperson'], 'Rajesh Kulkarni');
-    assert.equal('Business Card Image' in upsertCall.body.row, false);
-    assert.equal('Back Card Image' in upsertCall.body.row, false);
-    assert.equal('Follow-up History' in upsertCall.body.row, false);
-    assert.equal('Card Verified' in upsertCall.body.row, false);
+    assert.match(upsertCall.body.row['Follow-up History'], /SP-01|Rajesh Kulkarni/);
+    assert.equal(upsertCall.body.row['Card Verified'], 'TRUE');
     assert.equal(upsertCall.body.categoryLinks.length, 2);
 
     const patchRes = await request('PATCH', `/api/enquiries/${enquiry.enquiryId}`, {
@@ -343,6 +341,35 @@ test('persists cardVerified flag, syncs enquiries by field columns to Google She
     });
     assert.equal(patchRes.status, 200);
     assert.equal(patchRes.json().googleSheetsSync.synced, true);
+
+    const syncAllRes = await request('POST', '/api/sheets/sync-all', {});
+    assert.equal(syncAllRes.status, 200);
+    const syncAllCall = sheetCalls.find((c) => c.body.action === 'syncAll');
+    assert.ok(syncAllCall);
+    const syncedRow = syncAllCall.body.enquiries[0].row;
+    for (const requiredCol of [
+      'Enquiry ID',
+      'Expo Name',
+      'Enquiry Date',
+      'Company Name',
+      'Contact Person',
+      'Designation',
+      'Mobile',
+      'Email',
+      'Location',
+      'State / Region',
+      'Visit Priority',
+      'Tentative Visit Date',
+      'Assigned Salesperson ID',
+      'Assigned Salesperson',
+      'Enquiry Status',
+      'Follow-up Remarks',
+      'Created At',
+      'Updated At',
+    ]) {
+      assert.equal(requiredCol in syncedRow, true, `Missing column ${requiredCol}`);
+      assert.notEqual(String(syncedRow[requiredCol]).trim(), '', `Empty value for ${requiredCol}`);
+    }
 
     const delRes = await request('DELETE', `/api/enquiries/${enquiry.enquiryId}`);
     assert.equal(delRes.status, 200);
