@@ -1,18 +1,17 @@
 /**
  * APL EXPO AI — Google Sheets Sync & Workbook Setup (Google Apps Script)
  *
- * Stores ALL enquiry fields (including Contact Person / Name, Company Name,
- * Designation, Mobile, Email, Location, State/Region, Website, Product Categories,
- * Remarks, Priority, Visit Date, Salesperson, Status, Follow-up Remarks/History,
- * Card Verification, Front/Back Card Images, and Timestamps).
+ * Syncs exact EXPO_ENQUIRIES fields:
+ * Enquiry ID, Expo Name, Enquiry Date, Company Name, Contact Person, Designation,
+ * Mobile, Email, Location, State / Region, Website, Product Categories,
+ * Enquiry Remarks, Visit Priority, Tentative Visit Date, Assigned Salesperson ID,
+ * Assigned Salesperson, Enquiry Status, Follow-up Remarks, Created At, Updated At
  */
 
 var ENQUIRY_HEADERS = [
   'Enquiry ID',
   'Expo Name',
   'Enquiry Date',
-  'Business Card Image',
-  'Back Card Image',
   'Company Name',
   'Contact Person',
   'Designation',
@@ -29,10 +28,15 @@ var ENQUIRY_HEADERS = [
   'Assigned Salesperson',
   'Enquiry Status',
   'Follow-up Remarks',
-  'Follow-up History',
-  'Card Verified',
   'Created At',
   'Updated At',
+];
+
+var LEGACY_REMOVED_ENQUIRY_HEADERS = [
+  'Business Card Image',
+  'Back Card Image',
+  'Follow-up History',
+  'Card Verified',
 ];
 
 var CATEGORY_HEADERS = ['Category ID', 'Category Name', 'Description', 'Active'];
@@ -50,7 +54,7 @@ var LINK_HEADERS = [
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('APL EXPO AI')
-    .addItem('Setup / Repair Workbook Headers', 'setupWorkbook')
+    .addItem('Setup / Update Workbook Headers', 'setupWorkbook')
     .addToUi();
 }
 
@@ -64,10 +68,24 @@ function getOrCreateSheet(ss, name, expectedHeaders) {
     var headerRange = sheet.getRange(1, 1, 1, expectedHeaders.length);
     headerRange.setBackground('#0F2942').setFontColor('#FFFFFF').setFontWeight('bold');
     sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, expectedHeaders.length);
     return sheet;
   }
 
-  // Ensure any missing columns are automatically added to Row 1 on existing sheets
+  // Remove old deprecated columns from EXPO_ENQUIRIES if upgrading an existing sheet
+  if (name === 'EXPO_ENQUIRIES') {
+    var colCount = Math.max(1, sheet.getLastColumn());
+    var currentHeaders = sheet.getRange(1, 1, 1, colCount).getValues()[0].map(function (h) {
+      return String(h || '').trim();
+    });
+    for (var idx = currentHeaders.length - 1; idx >= 0; idx--) {
+      if (LEGACY_REMOVED_ENQUIRY_HEADERS.indexOf(currentHeaders[idx]) !== -1) {
+        sheet.deleteColumn(idx + 1);
+      }
+    }
+  }
+
+  // Ensure all expected columns exist in Row 1
   var lastCol = Math.max(1, sheet.getLastColumn());
   var existingHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
     return String(h || '').trim();
@@ -89,48 +107,17 @@ function getOrCreateSheet(ss, name, expectedHeaders) {
 
 function setupWorkbook() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  getOrCreateSheet(ss, 'EXPO_ENQUIRIES', ENQUIRY_HEADERS);
+  var enq = getOrCreateSheet(ss, 'EXPO_ENQUIRIES', ENQUIRY_HEADERS);
   getOrCreateSheet(ss, 'PRODUCT_CATEGORIES', CATEGORY_HEADERS);
   getOrCreateSheet(ss, 'SALES_TEAM', SALES_HEADERS);
   getOrCreateSheet(ss, 'ENQUIRY_CATEGORIES', LINK_HEADERS);
-
-  try {
-    var folders = DriveApp.getFoldersByName('APL_EXPO_AI_CARDS');
-    if (!folders.hasNext()) {
-      DriveApp.createFolder('APL_EXPO_AI_CARDS');
-    }
-  } catch (err) {
-    // Drive optional
-  }
+  enq.autoResizeColumns(1, Math.max(ENQUIRY_HEADERS.length, enq.getLastColumn()));
 }
 
 function verifySecret(payload) {
   var expected = PropertiesService.getScriptProperties().getProperty('WEBHOOK_SECRET');
   if (!expected) return true;
   return payload && payload.secret === expected;
-}
-
-function saveCardImageToDrive(dataUrl, filePrefix) {
-  if (!dataUrl || typeof dataUrl !== 'string' || dataUrl.indexOf('data:') !== 0) {
-    return '';
-  }
-  try {
-    var parts = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-    if (!parts) return '';
-    var mime = parts[1];
-    var bytes = Utilities.base64Decode(parts[2]);
-    var ext = mime.indexOf('png') >= 0 ? 'png' : mime.indexOf('svg') >= 0 ? 'svg' : 'jpg';
-    var blob = Utilities.newBlob(bytes, mime, filePrefix + '.' + ext);
-
-    var folderName = 'APL_EXPO_AI_CARDS';
-    var folders = DriveApp.getFoldersByName(folderName);
-    var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
-    var file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return file.getUrl();
-  } catch (err) {
-    return '[Image Saved Locally]';
-  }
 }
 
 function pickFirst(objA, objB, keys, fallback) {
@@ -148,15 +135,6 @@ function normalizeEnquiryRow(payload, rawRow) {
   var cats = pickFirst(r, p, ['Product Categories', 'productCategories'], '');
   if (Array.isArray(cats)) cats = cats.join('; ');
 
-  var history = pickFirst(r, p, ['Follow-up History', 'followUpHistory'], '');
-  if (Array.isArray(history)) {
-    history = history
-      .map(function (h) {
-        return '[' + (h.timestamp || '') + '] (' + (h.actor || '') + ' · ' + (h.status || '') + ') ' + (h.note || '');
-      })
-      .join('\n');
-  }
-
   var contactName = pickFirst(
     r,
     p,
@@ -165,12 +143,10 @@ function normalizeEnquiryRow(payload, rawRow) {
   );
   var companyName = pickFirst(r, p, ['Company Name', 'companyName', 'Company'], '');
 
-  var normalized = {
+  return {
     'Enquiry ID': pickFirst(r, p, ['Enquiry ID', 'enquiryId'], ''),
     'Expo Name': pickFirst(r, p, ['Expo Name', 'expoName'], 'IMTEX-2027'),
     'Enquiry Date': pickFirst(r, p, ['Enquiry Date', 'enquiryDate'], ''),
-    'Business Card Image': pickFirst(r, p, ['Business Card Image', 'frontCardImage'], ''),
-    'Back Card Image': pickFirst(r, p, ['Back Card Image', 'backCardImage'], ''),
     'Company Name': companyName,
     'Contact Person': contactName,
     'Name': contactName,
@@ -189,12 +165,9 @@ function normalizeEnquiryRow(payload, rawRow) {
     'Assigned Salesperson': pickFirst(r, p, ['Assigned Salesperson', 'assignedSalesperson'], ''),
     'Enquiry Status': pickFirst(r, p, ['Enquiry Status', 'enquiryStatus', 'Status'], ''),
     'Follow-up Remarks': pickFirst(r, p, ['Follow-up Remarks', 'followUpRemarks'], ''),
-    'Follow-up History': history,
-    'Card Verified': pickFirst(r, p, ['Card Verified', 'cardVerified'], 'FALSE'),
     'Created At': pickFirst(r, p, ['Created At', 'createdAt'], ''),
     'Updated At': pickFirst(r, p, ['Updated At', 'updatedAt'], ''),
   };
-  return normalized;
 }
 
 function getSheetHeaders(sheet, fallbackHeaders) {
@@ -309,20 +282,11 @@ function doPost(e) {
       var row = normalizeEnquiryRow(payload, payload.row);
       var enquiryId = row['Enquiry ID'];
 
-      if (payload.frontCardImage) {
-        var frontUrl = saveCardImageToDrive(payload.frontCardImage, enquiryId + '-front');
-        if (frontUrl) row['Business Card Image'] = frontUrl;
-      }
-      if (payload.backCardImage) {
-        var backUrl = saveCardImageToDrive(payload.backCardImage, enquiryId + '-back');
-        if (backUrl) row['Back Card Image'] = backUrl;
-      }
-
       var op = upsertRowByKey(enqSheet, ENQUIRY_HEADERS, 'Enquiry ID', row);
       replaceCategoryLinks(linkSheet, enquiryId, payload.categoryLinks || []);
       return jsonOut({
         ok: true,
-        message: 'Enquiry ' + op + ' in Google Sheet (all fields saved)',
+        message: 'Enquiry ' + op + ' in Google Sheet',
         enquiryId: enquiryId,
       });
     }
@@ -343,14 +307,6 @@ function doPost(e) {
       for (var i = 0; i < enquiries.length; i++) {
         var item = enquiries[i];
         var r = normalizeEnquiryRow(item, item.row);
-        if (item.frontCardImage) {
-          var fUrl = saveCardImageToDrive(item.frontCardImage, r['Enquiry ID'] + '-front');
-          if (fUrl) r['Business Card Image'] = fUrl;
-        }
-        if (item.backCardImage) {
-          var bUrl = saveCardImageToDrive(item.backCardImage, r['Enquiry ID'] + '-back');
-          if (bUrl) r['Back Card Image'] = bUrl;
-        }
         upsertRowByKey(enqSheetAll, ENQUIRY_HEADERS, 'Enquiry ID', r);
         replaceCategoryLinks(linkSheetAll, r['Enquiry ID'], item.categoryLinks || []);
       }

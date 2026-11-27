@@ -331,8 +331,10 @@ test('persists cardVerified flag, syncs enquiries by field columns to Google She
     assert.equal(upsertCall.body.row['Product Categories'], 'Metalworking Fluids; Heat Treatment Oils');
     assert.equal(upsertCall.body.row['Assigned Salesperson ID'], 'SP-01');
     assert.equal(upsertCall.body.row['Assigned Salesperson'], 'Rajesh Kulkarni');
-    assert.match(upsertCall.body.row['Follow-up History'], /SP-01|Rajesh Kulkarni/);
-    assert.equal(upsertCall.body.row['Card Verified'], 'TRUE');
+    assert.equal('Business Card Image' in upsertCall.body.row, false);
+    assert.equal('Back Card Image' in upsertCall.body.row, false);
+    assert.equal('Follow-up History' in upsertCall.body.row, false);
+    assert.equal('Card Verified' in upsertCall.body.row, false);
     assert.equal(upsertCall.body.categoryLinks.length, 2);
 
     const patchRes = await request('PATCH', `/api/enquiries/${enquiry.enquiryId}`, {

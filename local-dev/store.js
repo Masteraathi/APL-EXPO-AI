@@ -133,8 +133,6 @@ class ExpoStore {
       'Enquiry ID',
       'Expo Name',
       'Enquiry Date',
-      'Business Card Image',
-      'Back Card Image',
       'Company Name',
       'Contact Person',
       'Designation',
@@ -151,8 +149,6 @@ class ExpoStore {
       'Assigned Salesperson',
       'Enquiry Status',
       'Follow-up Remarks',
-      'Follow-up History',
-      'Card Verified',
       'Created At',
       'Updated At',
     ];
@@ -160,8 +156,6 @@ class ExpoStore {
       'Enquiry ID': e.enquiryId,
       'Expo Name': e.expoName,
       'Enquiry Date': e.enquiryDate,
-      'Business Card Image': e.frontCardImage ? `[Stored Image: ${e.enquiryId}-front]` : '',
-      'Back Card Image': e.backCardImage ? `[Stored Image: ${e.enquiryId}-back]` : '',
       'Company Name': e.companyName,
       'Contact Person': e.contactPerson,
       'Designation': e.designation,
@@ -178,10 +172,6 @@ class ExpoStore {
       'Assigned Salesperson': e.assignedSalesperson || '',
       'Enquiry Status': e.enquiryStatus,
       'Follow-up Remarks': e.followUpRemarks || '',
-      'Follow-up History': Array.isArray(e.followUpHistory)
-        ? e.followUpHistory.map((h) => `[${h.timestamp}] (${h.actor} · ${h.status}) ${h.note}`).join(' | ')
-        : '',
-      'Card Verified': e.cardVerified ? 'TRUE' : 'FALSE',
       'Created At': e.createdAt || '',
       'Updated At': e.updatedAt || '',
     }));
