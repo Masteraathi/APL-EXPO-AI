@@ -1,0 +1,9 @@
+Category ID,Category Name,Description,Active
+CAT-01,Industrial Lubricants,"Hydraulic oils, gear oils, compressor & turbine lubricants",TRUE
+CAT-02,Metalworking Fluids,"Soluble cutting oils, neat cutting oils, synthetic & semi-synthetic fluids",TRUE
+CAT-03,Automotive Lubricants,"Commercial fleet engine oils, transmission & axle lubricants",TRUE
+CAT-04,Heat Treatment Oils,"Fast & normal quenching oils, martempering & tempering oils",TRUE
+CAT-05,Rust Preventives,"Solvent-based, oil-based & water-displacing corrosion protection",TRUE
+CAT-06,Industrial Cleaning,"Alkaline, neutral & solvent industrial component cleaners",TRUE
+CAT-07,Speciality Lubricants,"High-temperature greases, food-grade & synthetic speciality formulations",TRUE
+CAT-08,Others,"Custom formulations, testing support & allied industrial products",TRUE

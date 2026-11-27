@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>APL EXPO AI — Expo Enquiry &amp; Lead Management System</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Desktop Sidebar -->
+    <aside class="sidebar" aria-label="Primary Navigation">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true">APL</div>
+        <div>
+          <div class="brand-title">APL EXPO AI</div>
+          <div class="brand-sub">Lead Capture &amp; Follow-up</div>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-primary btn-block sidebar-cta" data-nav="capture">
+        <span aria-hidden="true">+</span> New Enquiry
+      </button>
+
+      <nav class="nav-list">
+        <button type="button" class="nav-item active" data-nav="capture">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M7 5l1.5-2h7L17 5"/></svg>
+          <span>Scan &amp; Capture</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="enquiries">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+          <span>Enquiries</span>
+          <span class="nav-badge" id="navEnquiryCount">0</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="dashboard">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7" rx="1"/><rect x="12" y="6" width="3" height="11" rx="1"/><rect x="17" y="13" width="3" height="4" rx="1"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="calendar">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span>Visit Calendar</span>
+        </button>
+        <button type="button" class="nav-item" data-nav="masters">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Masters &amp; Data</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-pill" id="apiStatusPill">
+          <span class="dot"></span>
+          <span id="apiStatusText">Checking AI Engine...</span>
+        </div>
+        <div class="sidebar-meta">Target: 30–60s enquiry capture</div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="main-wrap">
+      <!-- Mobile Top Header -->
+      <header class="mobile-header">
+        <div class="mobile-brand">
+          <div class="brand-mark sm">APL</div>
+          <div>
+            <div class="brand-title sm">APL EXPO AI</div>
+            <div class="brand-sub sm" id="mobileHeaderSub">Expo Enquiry Capture</div>
+          </div>
+        </div>
+        <div class="mobile-status-chip" id="mobileAiChip">AI Ready</div>
+      </header>
+
+      <main class="content">
+        <!-- VIEW 1: CAPTURE & AI BUSINESS CARD SCANNER -->
+        <section id="view-capture" class="view active" aria-labelledby="captureTitle">
+          <div class="page-head">
+            <div>
+              <h1 id="captureTitle">New Expo Enquiry</h1>
+              <p class="muted">Scan a visiting card, verify extracted contact fields, tag APL products, and assign follow-up.</p>
+            </div>
+            <div class="head-actions">
+              <div class="timer-pill" id="captureTimerPill" title="Target: 30–60 seconds after scanning">
+                <span class="timer-dot"></span>
+                <span>Capture Timer:</span>
+                <strong id="captureTimerValue">00:00</strong>
+              </div>
+              <button type="button" class="btn btn-ghost" id="resetFormBtn">Clear Form</button>
+            </div>
+          </div>
+
+          <div id="saveSuccessBanner" class="banner banner-success hidden" role="status">
+            <div>
+              <strong id="savedIdLabel">Enquiry Saved</strong>
+              <p id="savedSummaryText"></p>
+            </div>
+            <div class="banner-actions">
+              <button type="button" class="btn btn-sm btn-outline" id="viewSavedEnquiryBtn">Open Lead</button>
+              <button type="button" class="btn btn-sm btn-primary" id="scanNextCardBtn">Scan Next Card</button>
+            </div>
+          </div>
+
+          <form id="enquiryForm" class="capture-grid" novalidate>
+            <!-- Left Column: Card Scanner & Contact Review -->
+            <div class="capture-col">
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2>1. Business Card Scan (Front &amp; Back)</h2>
+                    <p class="card-sub">Original card images are preserved with the enquiry record.</p>
+                  </div>
+                  <span class="badge badge-teal" id="ocrModeBadge">AI OCR Ready</span>
+                </div>
+
+                <div class="card-slots">
+                  <!-- Front Card Slot -->
+                  <div class="card-slot">
+                    <div class="slot-label">Front Side <span class="req">*recommended</span></div>
+                    <div class="slot-preview" id="frontPreviewBox">
+                      <div class="slot-empty" id="frontEmptyState">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M13 10h6M13 14h4"/></svg>
+                        <span>No front image yet</span>
+                      </div>
+                      <img id="frontPreviewImg" class="hidden" alt="Front of visiting card" />
+                      <div class="scan-overlay hidden" id="scanOverlay">
+                        <div class="scan-line"></div>
+                        <span>Extracting contact details...</span>
+                      </div>
+                    </div>
+                    <div class="slot-actions">
+                      <label class="btn btn-sm btn-outline file-btn">
+                        Camera / Upload
+                        <input type="file" id="frontFileInput" accept="image/*" capture="environment" hidden />
+                      </label>
+                      <button type="button" class="btn btn-sm btn-ghost" id="openWebcamBtn">Webcam</button>
+                      <button type="button" class="btn btn-sm btn-ghost hidden" id="rotateFrontBtn">Rotate 90&deg;</button>
+                      <button type="button" class="btn btn-sm btn-ghost text-danger hidden" id="clearFrontBtn">Remove</button>
+                    </div>
+                  </div>
+
+                  <!-- Back Card Slot -->
+                  <div class="card-slot">
+                    <div class="slot-label">Back Side <span class="muted">(optional)</span></div>
+                    <div class="slot-preview" id="backPreviewBox">
+                      <div class="slot-empty" id="backEmptyState">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 10h12M6 14h8"/></svg>
+                        <span>Optional back side</span>
+                      </div>
+                      <img id="backPreviewImg" class="hidden" alt="Back of visiting card" />
+                    </div>
+                    <div class="slot-actions">
+                      <label class="btn btn-sm btn-outline file-btn">
+                        Add Back
+                        <input type="file" id="backFileInput" accept="image/*" capture="environment" hidden />
+                      </label>
+                      <button type="button" class="btn btn-sm btn-ghost hidden" id="rotateBackBtn">Rotate 90&deg;</button>
+                      <button type="button" class="btn btn-sm btn-ghost text-danger hidden" id="clearBackBtn">Remove</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="scan-cta-row">
+                  <button type="button" class="btn btn-primary" id="runAiExtractBtn">
+                    Analyze Card &amp; Extract
+                  </button>
+                  <span class="muted small" id="extractStatusText">Upload or capture front (and optional back) card image to extract details.</span>
+                </div>
+
+                <!-- OCR Detected Lines Inspector -->
+                <details id="ocrInspectorWrap" class="ocr-inspector hidden">
+                  <summary>Detected Visiting Card Text (<span id="ocrLineCount">0</span> lines)</summary>
+                  <div id="ocrLinesList" class="ocr-lines-list"></div>
+                </details>
+
+                <!-- Conflict Resolver Banner (Non-destructive AI protection) -->
+                <div id="aiConflictBanner" class="banner banner-warn hidden">
+                  <div>
+                    <strong>Verified fields were preserved</strong>
+                    <p id="aiConflictDetails"></p>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline" id="applyAllAiConflictsBtn">Use AI Values</button>
+                </div>
+              </div>
+
+              <!-- Step 2: Extracted Contact Details -->
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2>2. Contact &amp; Company Details</h2>
+                    <p class="card-sub">Review AI-extracted fields and check they match the visiting card before saving.</p>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline" id="checkCardMatchBtn">
+                    Compare with Card
+                  </button>
+                </div>
+
+                <!-- Side-by-Side Card Verification Panel -->
+                <div id="cardComparePanel" class="compare-panel hidden">
+                  <div class="compare-head">
+                    <strong>Visiting Card vs. Form Details Check</strong>
+                    <button type="button" class="btn btn-ghost btn-sm" id="closeComparePanelBtn">Hide</button>
+                  </div>
+                  <div id="cardCompareImages" class="compare-images"></div>
+                  <div id="cardCompareTableWrap"></div>
+                </div>
+
+                <!-- Duplicate Detection Alert -->
+                <div id="duplicateAlert" class="banner banner-warn hidden" role="alert">
+                  <div>
+                    <strong>Existing Customer Lead Detected</strong>
+                    <p id="duplicateAlertText"></p>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline" id="inspectDuplicateBtn">View History</button>
+                </div>
+
+                <div class="form-grid">
+                  <div class="field span-2">
+                    <label for="companyName">Company Name <span class="req">*</span></label>
+                    <input id="companyName" name="companyName" type="text" placeholder="e.g., Bharat Precision Gears Pvt. Ltd." required />
+                    <span class="field-error" data-err="companyName"></span>
+                  </div>
+
+                  <div class="field">
+                    <label for="contactPerson">Contact Person <span class="req">*</span></label>
+                    <input id="contactPerson" name="contactPerson" type="text" placeholder="Full name" required />
+                    <span class="field-error" data-err="contactPerson"></span>
+                  </div>
+
+                  <div class="field">
+                    <label for="designation">Designation</label>
+                    <input id="designation" name="designation" type="text" placeholder="e.g., Head of Maintenance" />
+                  </div>
+
+                  <div class="field">
+                    <div class="label-row">
+                      <label for="mobile">Mobile Number <span class="req">*</span></label>
+                      <label class="verify-check">
+                        <input type="checkbox" id="mobileVerified" />
+                        <span>Verified</span>
+                      </label>
+                    </div>
+                    <input id="mobile" name="mobile" type="tel" placeholder="+91 98XXX XXXXX" required />
+                    <span class="field-error" data-err="mobile"></span>
+                    <span class="field-error" data-err="mobileVerified"></span>
+                  </div>
+
+                  <div class="field">
+                    <div class="label-row">
+                      <label for="email">Email Address</label>
+                      <label class="verify-check">
+                        <input type="checkbox" id="emailVerified" />
+                        <span>Verified</span>
+                      </label>
+                    </div>
+                    <input id="email" name="email" type="email" placeholder="name@company.com" />
+                    <span class="field-error" data-err="email"></span>
+                    <span class="field-error" data-err="emailVerified"></span>
+                  </div>
+
+                  <div class="field span-2">
+                    <label for="location">Location / Address</label>
+                    <input id="location" name="location" type="text" placeholder="Industrial estate, city, state, pin" />
+                  </div>
+
+                  <div class="field">
+                    <label for="stateRegion">State / Region</label>
+                    <input id="stateRegion" name="stateRegion" type="text" placeholder="Auto-detected or type state" />
+                  </div>
+
+                  <div class="field">
+                    <label for="website">Website</label>
+                    <input id="website" name="website" type="text" placeholder="www.company.com" />
+                  </div>
+
+                  <div class="field span-2">
+                    <label class="card-match-check">
+                      <input type="checkbox" id="cardVerified" />
+                      <span>I checked that the entered details match the visiting / business card</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Column: Expo, Categories, Remarks & Follow-up -->
+            <div class="capture-col">
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2>3. Expo &amp; Product Interest</h2>
+                    <p class="card-sub">Select one or more approved APL product categories.</p>
+                  </div>
+                </div>
+
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="expoNameSelect">Expo / Event Name <span class="req">*</span></label>
+                    <select id="expoNameSelect"></select>
+                    <input id="expoNameCustom" type="text" class="hidden mt-1" placeholder="Enter new exhibition name" />
+                    <span class="field-error" data-err="expoName"></span>
+                  </div>
+
+                  <div class="field">
+                    <label for="enquiryDate">Enquiry Date <span class="req">*</span></label>
+                    <input id="enquiryDate" name="enquiryDate" type="date" required />
+                    <span class="field-error" data-err="enquiryDate"></span>
+                  </div>
+                </div>
+
+                <div class="field mt-2">
+                  <div class="label-row">
+                    <label>Product Categories <span class="req">*</span> <span class="muted small" id="selectedCatCount">(0 selected)</span></label>
+                    <input type="search" id="categorySearchInput" class="mini-search" placeholder="Filter categories..." />
+                  </div>
+                  <div class="chip-grid" id="productCategoryChips"></div>
+                  <span class="field-error" data-err="productCategories"></span>
+                </div>
+
+                <div class="field mt-2">
+                  <div class="label-row">
+                    <label for="enquiryRemarks">Enquiry Remarks</label>
+                    <span class="muted small">Tap tags to insert prompts:</span>
+                  </div>
+                  <div class="remark-tags">
+                    <button type="button" class="tag-btn" data-remark-tag="Application: ">+ Application</button>
+                    <button type="button" class="tag-btn" data-remark-tag="Machines / Equipment: ">+ Machines</button>
+                    <button type="button" class="tag-btn" data-remark-tag="Current Product / Supplier: ">+ Current Product</button>
+                    <button type="button" class="tag-btn" data-remark-tag="Expected Monthly Volume: ">+ Volume</button>
+                    <button type="button" class="tag-btn" data-remark-tag="Technical Issue / Pain Point: ">+ Technical Issue</button>
+                  </div>
+                  <textarea id="enquiryRemarks" rows="4" placeholder="Customer application, equipment/machine details, current supplier/product, expected volume, technical issues, urgency, or commitments made at the expo..."></textarea>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2>4. Priority, Visit Plan &amp; Assignment</h2>
+                    <p class="card-sub">Prioritize follow-up and route to the regional salesperson.</p>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>Visit Priority <span class="req">*</span></label>
+                  <div class="priority-segment" role="radiogroup" aria-label="Visit Priority">
+                    <button type="button" class="prio-btn" data-priority="HIGH">HIGH</button>
+                    <button type="button" class="prio-btn active" data-priority="MEDIUM">MEDIUM</button>
+                    <button type="button" class="prio-btn" data-priority="LOW">LOW</button>
+                  </div>
+                  <div class="priority-hint" id="priorityGuidanceText"></div>
+                  <span class="field-error" data-err="visitPriority"></span>
+                </div>
+
+                <div class="form-grid mt-2">
+                  <div class="field">
+                    <label for="tentativeVisitDate">Tentative Visit Date</label>
+                    <input id="tentativeVisitDate" type="date" />
+                  </div>
+
+                  <div class="field">
+                    <label for="assignedSalespersonId">Assigned Salesperson</label>
+                    <select id="assignedSalespersonId"></select>
+                    <div class="muted small mt-1" id="salespersonContactHint"></div>
+                  </div>
+
+                  <div class="field span-2">
+                    <label for="followUpRemarks">Initial Follow-up Note <span class="muted">(optional)</span></label>
+                    <input id="followUpRemarks" type="text" placeholder="e.g., Send TDS/MSDS before visit" />
+                  </div>
+                </div>
+
+                <div class="submit-bar">
+                  <div class="muted small">Unique Enquiry ID (<code>APL-YYYY-NNNN</code>) will be auto-generated on save.</div>
+                  <button type="submit" class="btn btn-primary btn-lg" id="saveEnquiryBtn">
+                    Save Enquiry
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <!-- VIEW 2: ENQUIRIES & FOLLOW-UP -->
+        <section id="view-enquiries" class="view" aria-labelledby="enquiriesTitle">
+          <div class="page-head">
+            <div>
+              <h1 id="enquiriesTitle">Enquiries &amp; Follow-up</h1>
+              <p class="muted">Track lead status, inspect business cards, assign reps, and log follow-up updates.</p>
+            </div>
+            <div class="head-actions">
+              <a class="btn btn-outline" href="/api/export/csv?table=EXPO_ENQUIRIES" download="EXPO_ENQUIRIES.csv">Export CSV</a>
+              <button type="button" class="btn btn-primary" data-nav="capture">+ New Enquiry</button>
+            </div>
+          </div>
+
+          <div class="card filter-bar">
+            <input type="search" id="enqSearchInput" placeholder="Search ID, company, contact, mobile, email, remarks..." />
+            <select id="enqFilterExpo"><option value="ALL">All Expos</option></select>
+            <select id="enqFilterStatus"><option value="ALL">All Statuses</option></select>
+            <select id="enqFilterPriority">
+              <option value="ALL">All Priorities</option>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+            <select id="enqFilterSalesperson"><option value="ALL">All Salespeople</option></select>
+            <select id="enqFilterCategory"><option value="ALL">All Categories</option></select>
+          </div>
+
+          <div id="enquiriesTableWrap" class="card table-card"></div>
+          <div id="enquiriesMobileList" class="mobile-lead-list"></div>
+        </section>
+
+        <!-- VIEW 3: MANAGEMENT DASHBOARD -->
+        <section id="view-dashboard" class="view" aria-labelledby="dashboardTitle">
+          <div class="page-head">
+            <div>
+              <h1 id="dashboardTitle">Sales &amp; Management Dashboard</h1>
+              <p class="muted">Real-time expo performance, category demand, regional spread, and salesperson allocation.</p>
+            </div>
+            <div class="head-actions">
+              <a class="btn btn-outline" href="/api/export/csv?table=EXPO_ENQUIRIES" download="EXPO_ENQUIRIES.csv">Export Enquiries CSV</a>
+              <a class="btn btn-outline" href="/api/export/csv?table=ENQUIRY_CATEGORIES" download="ENQUIRY_CATEGORIES.csv">Export Category Links</a>
+            </div>
+          </div>
+
+          <div class="card filter-bar compact">
+            <div class="filter-inline">
+              <label for="dashFilterExpo">Expo</label>
+              <select id="dashFilterExpo"><option value="ALL">All Expos</option></select>
+            </div>
+            <div class="filter-inline">
+              <label for="dashDateFrom">From</label>
+              <input type="date" id="dashDateFrom" />
+            </div>
+            <div class="filter-inline">
+              <label for="dashDateTo">To</label>
+              <input type="date" id="dashDateTo" />
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="dashResetBtn">Reset Filters</button>
+          </div>
+
+          <div class="kpi-grid" id="dashboardKpiGrid"></div>
+
+          <div class="dash-grid">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Enquiries by Product Category</h2>
+                  <p class="card-sub">Multi-category counts sourced from <code>ENQUIRY_CATEGORIES</code></p>
+                </div>
+              </div>
+              <div id="chartByCategory" class="bar-list"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Enquiries by State / Region</h2>
+                  <p class="card-sub">Geographic distribution across industrial clusters</p>
+                </div>
+              </div>
+              <div id="chartByRegion" class="bar-list"></div>
+            </div>
+
+            <div class="card span-2">
+              <div class="card-head">
+                <div>
+                  <h2>Salesperson-wise Enquiry Allocation</h2>
+                  <p class="card-sub">Workload, priority concentration, planned visits, and completions</p>
+                </div>
+              </div>
+              <div id="salespersonAllocationTable"></div>
+            </div>
+
+            <div class="card span-2">
+              <div class="card-head">
+                <div>
+                  <h2>High-Priority Leads Pending Follow-up</h2>
+                  <p class="card-sub">Urgent opportunities not yet marked Completed</p>
+                </div>
+              </div>
+              <div id="highPriorityQueue"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 4: TENTATIVE VISIT CALENDAR -->
+        <section id="view-calendar" class="view" aria-labelledby="calendarTitle">
+          <div class="page-head">
+            <div>
+              <h1 id="calendarTitle">Tentative Visit Calendar</h1>
+              <p class="muted">Schedule and adjust proposed customer plant visits by salesperson and priority.</p>
+            </div>
+            <div class="head-actions">
+              <select id="calSalespersonFilter"><option value="ALL">All Salespeople</option></select>
+              <div class="month-nav">
+                <button type="button" class="btn btn-outline btn-sm" id="calPrevBtn">&larr;</button>
+                <strong id="calMonthLabel">November 2026</strong>
+                <button type="button" class="btn btn-outline btn-sm" id="calNextBtn">&rarr;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="calendar-layout">
+            <div class="card calendar-card">
+              <div class="cal-weekdays">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+              </div>
+              <div class="cal-grid" id="calendarGrid"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>Upcoming Planned Visits</h2>
+                  <p class="card-sub">Click any visit to update date, status, or remarks</p>
+                </div>
+              </div>
+              <div id="upcomingVisitsList" class="visit-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 5: MASTERS & DATA STRUCTURE -->
+        <section id="view-masters" class="view" aria-labelledby="mastersTitle">
+          <div class="page-head">
+            <div>
+              <h1 id="mastersTitle">Master Data &amp; Sheets Schema</h1>
+              <p class="muted">Manage controlled product categories, approved sales team members, and CSV/Sheets exports.</p>
+            </div>
+          </div>
+
+          <div class="masters-grid">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>PRODUCT_CATEGORIES Master</h2>
+                  <p class="card-sub">Active categories appear as multi-select chips in New Enquiry.</p>
+                </div>
+              </div>
+              <form id="addCategoryForm" class="inline-add-form">
+                <input type="text" id="newCatName" placeholder="New category name" required />
+                <input type="text" id="newCatDesc" placeholder="Short description (optional)" />
+                <button type="submit" class="btn btn-primary btn-sm">Add Category</button>
+              </form>
+              <div id="masterCategoriesList" class="master-list"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h2>SALES_TEAM Master</h2>
+                  <p class="card-sub">Approved salespeople available for lead assignment.</p>
+                </div>
+              </div>
+              <form id="addSalespersonForm" class="inline-add-form wrap">
+                <input type="text" id="newSpName" placeholder="Full name" required />
+                <input type="email" id="newSpEmail" placeholder="Email" />
+                <input type="tel" id="newSpPhone" placeholder="Phone" />
+                <input type="text" id="newSpRegion" placeholder="Region (e.g., West - Pune)" />
+                <button type="submit" class="btn btn-primary btn-sm">Add Rep</button>
+              </form>
+              <div id="masterSalesTeamList" class="master-list"></div>
+            </div>
+
+            <div class="card span-2">
+              <div class="card-head">
+                <div>
+                  <h2>4-Table Data Structure &amp; Security Controls</h2>
+                  <p class="card-sub">Mirrors the Google Sheets normalized architecture (<code>EXPO_ENQUIRIES</code>, <code>PRODUCT_CATEGORIES</code>, <code>SALES_TEAM</code>, <code>ENQUIRY_CATEGORIES</code>).</p>
+                </div>
+              </div>
+              <div id="sheetsSchemaCards" class="schema-grid"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Mobile Bottom Tab Bar -->
+    <nav class="mobile-bottom-nav" aria-label="Mobile Navigation">
+      <button type="button" class="m-nav-item active" data-nav="capture">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>Scan</span>
+      </button>
+      <button type="button" class="m-nav-item" data-nav="enquiries">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/></svg>
+        <span>Leads</span>
+      </button>
+      <button type="button" class="m-nav-item" data-nav="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/></svg>
+        <span>Stats</span>
+      </button>
+      <button type="button" class="m-nav-item" data-nav="calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span>Visits</span>
+      </button>
+      <button type="button" class="m-nav-item" data-nav="masters">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>
+        <span>Masters</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Lead Detail & Follow-up Drawer -->
+  <div id="leadDrawerBackdrop" class="drawer-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+    <div class="drawer">
+      <div class="drawer-head">
+        <div>
+          <div class="drawer-id" id="drawerEnquiryId">APL-2026-0001</div>
+          <h2 id="drawerTitle">Company Name</h2>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" id="closeDrawerBtn">Close &times;</button>
+      </div>
+      <div class="drawer-body" id="drawerBody"></div>
+    </div>
+  </div>
+
+  <!-- Webcam Capture Modal -->
+  <div id="webcamModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="webcamTitle">
+    <div class="modal-card">
+      <div class="drawer-head">
+        <h2 id="webcamTitle">Capture Business Card</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="closeWebcamBtn">Cancel</button>
+      </div>
+      <div class="webcam-stage">
+        <video id="webcamVideo" autoplay playsinline></video>
+        <canvas id="webcamCanvas" class="hidden"></canvas>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="snapPhotoBtn">Capture Front Card</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card Image Zoom Modal -->
+  <div id="cardZoomModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="cardZoomTitle">
+    <div class="modal-card zoom-modal-card">
+      <div class="drawer-head">
+        <h2 id="cardZoomTitle">Visiting Card Preview</h2>
+        <button type="button" class="btn btn-ghost btn-sm" id="closeCardZoomBtn">Close &times;</button>
+      </div>
+      <div class="zoom-stage">
+        <img id="cardZoomImg" alt="Zoomed visiting card" />
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

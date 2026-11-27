@@ -1,0 +1,101 @@
+{
+  "categories": [
+    {
+      "id": "CAT-01",
+      "name": "Industrial Lubricants",
+      "description": "Hydraulic oils, gear oils, compressor & turbine lubricants",
+      "active": true
+    },
+    {
+      "id": "CAT-02",
+      "name": "Metalworking Fluids",
+      "description": "Soluble cutting oils, neat cutting oils, synthetic & semi-synthetic fluids",
+      "active": true
+    },
+    {
+      "id": "CAT-03",
+      "name": "Automotive Lubricants",
+      "description": "Commercial fleet engine oils, transmission & axle lubricants",
+      "active": true
+    },
+    {
+      "id": "CAT-04",
+      "name": "Heat Treatment Oils",
+      "description": "Fast & normal quenching oils, martempering & tempering oils",
+      "active": true
+    },
+    {
+      "id": "CAT-05",
+      "name": "Rust Preventives",
+      "description": "Solvent-based, oil-based & water-displacing corrosion protection",
+      "active": true
+    },
+    {
+      "id": "CAT-06",
+      "name": "Industrial Cleaning",
+      "description": "Alkaline, neutral & solvent industrial component cleaners",
+      "active": true
+    },
+    {
+      "id": "CAT-07",
+      "name": "Speciality Lubricants",
+      "description": "High-temperature greases, food-grade & synthetic speciality formulations",
+      "active": true
+    },
+    {
+      "id": "CAT-08",
+      "name": "Others",
+      "description": "Custom formulations, testing support & allied industrial products",
+      "active": true
+    }
+  ],
+  "salesTeam": [
+    {
+      "id": "SP-01",
+      "name": "Rajesh Kulkarni",
+      "email": "rajesh.kulkarni@apllubes.example",
+      "phone": "+91 98220 44110",
+      "region": "Maharashtra (Pune / Nashik)",
+      "active": false
+    },
+    {
+      "id": "SP-02",
+      "name": "Ananya Subramanian",
+      "email": "ananya.s@apllubes.example",
+      "phone": "+91 98401 77230",
+      "region": "Tamil Nadu (Chennai / Coimbatore)",
+      "active": false
+    },
+    {
+      "id": "SP-03",
+      "name": "Vikramaditya Mehta",
+      "email": "vikram.mehta@apllubes.example",
+      "phone": "+91 98250 61890",
+      "region": "Gujarat (Ahmedabad / Rajkot)",
+      "active": false
+    },
+    {
+      "id": "SP-04",
+      "name": "Harpreet Singh Gill",
+      "email": "harpreet.gill@apllubes.example",
+      "phone": "+91 98111 35042",
+      "region": "North NCR / Punjab (Gurugram / Ludhiana)",
+      "active": false
+    },
+    {
+      "id": "SP-05",
+      "name": "Siddharth Nair",
+      "email": "siddharth.nair@apllubes.example",
+      "phone": "+91 98450 22918",
+      "region": "Karnataka (Bengaluru / Belagavi)",
+      "active": false
+    }
+  ],
+  "expos": [
+    "IMTEX 2026 - Bengaluru",
+    "MACHMA Expo 2026 - Pune",
+    "Auto Expo Components 2026 - New Delhi",
+    "PLASTINDIA 2026 - Gandhinagar"
+  ],
+  "enquiries": []
+}

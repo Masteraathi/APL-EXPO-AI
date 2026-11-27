@@ -1,0 +1,13 @@
+{
+  "name": "apl-expo-ai",
+  "version": "1.0.0",
+  "description": "APL EXPO AI — Google Apps Script, Google Sheets, Gemini API extraction backend, and AppSheet prototype",
+  "private": true,
+  "scripts": {
+    "start": "node local-dev/server.js",
+    "test": "node --test test/prototype.test.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
